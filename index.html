@@ -8,8 +8,10 @@
 
 <body>
 <!-- red container div -->
-<div style="position: relative; display: inline-block;">
-    
+<div 
+class="div_main"
+style="position: relative; display: inline-block;">
+    <!-- <p>Hashima Game</p> -->
     <div style="
         position: absolute; 
         display: flex; 
@@ -48,13 +50,15 @@
         <div 
         id="timer"
         style="
-        background-color: red;
+        background-color: black;
         flex-shrink: 0; 
-        height: 100px; 
+        height: 50px; 
         width: 100px;
         align-items: center;
         display: flex;
-        color: wheat;
+        font-weight: 800;
+        letter-spacing: 0.3em;
+        color: snow;
         justify-content: center;
         "
         >
@@ -97,6 +101,8 @@
     right: 0;
     bottom: 0;
     left: 0;
+    font-size: 4rem;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
     display: none;
     ">Tie</div>
     <canvas> 
@@ -107,4 +113,5 @@
 
 <script src="./js/classes.js"></script>
 <script src="./index.js"></script>
+<link rel="stylesheet" href="./style/style_1.css">
 </body>

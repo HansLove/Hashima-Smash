@@ -1,8 +1,8 @@
 const canvas=document.querySelector('canvas')
 const c=canvas.getContext('2d')
 
-canvas.width=1500
-canvas.height=800
+canvas.width=window.innerWidth-8
+canvas.height=920
 
 c.fillRect(0,0,canvas.width,canvas.height)
 
@@ -11,21 +11,14 @@ const gravity=0.5
 
 const background=new Sprite({
     position:{
-        x:0,
-        y:0
+        x:160,
+        y:-200
     },
+
     imageSrc:'./img/bk_1.png'
 })
 
-// const shop=new Sprite({
-//     position:{
-//         x:1000,
-//         y:200
-//     },
-//     scale:0.2,
-//     frameMax:4,
-//     imageSrc:'./img/alen_1.png'
-// })
+
 
 
 const player=new Figther({
@@ -37,9 +30,55 @@ const player=new Figther({
         x:0,
         y:10
     },
+
+    imageSrc:'./img/davi_neutral.png',
+    frameMax:4,
+    scale:0.5,
     offset:{
-        x:0,
-        y:0
+        x:150,y:250
+    },
+    sprites:{
+        idle:{
+            imageSrc:'./img/davi_neutral.png',
+            frameMax:4
+        },
+        run:{
+            imageSrc:'./img/sprite_davi.png',
+            frameMax:4
+        },  
+        run2:{
+            imageSrc:'./img/reverse.png',
+            frameMax:4
+        },         
+        jump:{
+            imageSrc:'./img/sprite_davi.png',
+            frameMax:4
+        },   
+        fall:{
+            imageSrc:'./img/sprite_davi.png',
+            frameMax:4
+        },
+        attack1:{
+            imageSrc:'./img/attack.png',
+            frameMax:3
+        },    
+        takeHit:{
+            imageSrc:'./img/takeHit_1.png',
+            frameMax:2
+        },  
+        death:{
+            imageSrc:'./img/death_1.png',
+            frameMax:4
+        },                            
+        
+    },
+    attackBox:{
+        offset:{
+            x:250,
+            y:0
+        },
+        width: 150,
+        height: 50
     }
 
 })
@@ -48,17 +87,64 @@ player.draw()
 
 const enemy=new Figther({
     position:{
-        x:400,
-        y:100
+        x:600,
+        y:00
     },
     velocity:{
         x:0,
         y:0
     },
+
+    imageSrc:'./img/davi_neutral.png',
+    frameMax:4,
+    scale:0.5,
     offset:{
-        x:50,
-        y:0
-    }
+        x:100,y:250
+    },
+    sprites:{
+        idle:{
+            imageSrc:'./img/reverse.png',
+            frameMax:4
+        },
+        run:{
+            imageSrc:'./img/sprite_davi.png',
+            frameMax:4
+        },  
+        run2:{
+            imageSrc:'./img/reverse.png',
+            frameMax:4
+        },         
+        jump:{
+            imageSrc:'./img/reverse.png',
+            frameMax:4
+        },   
+        fall:{
+            imageSrc:'./img/reverse.png',
+            frameMax:4
+        },
+        attack1:{
+            imageSrc:'./img/reverse_attack.png',
+            frameMax:4
+        },      
+        takeHit:{
+            imageSrc:'./img/takeHit_2.png',
+            frameMax:2
+        },    
+        death:{
+            imageSrc:'./img/death_2.png',
+            frameMax:4
+        },                            
+                                      
+    },
+    attackBox:{
+        offset:{
+            x:-150,
+            y:0
+        },
+        width: 150,
+        height: 50
+    } 
+    
 })
 
 enemy.draw()
@@ -97,7 +183,7 @@ function animate(){
     c.fillRect(0,0,canvas.width,canvas.height)
     
     background.update()
-    // shop.update()
+    
     
     player.update()
     enemy.update()
@@ -107,26 +193,59 @@ function animate(){
 
     if(keys.a.pressed&& player.lastKey==='a'){
         player.velocity.x=-5
+        player.switchSprite('run2')
     }else if(keys.d.pressed&&player.lastKey==='d'){
         player.velocity.x=5
+        player.switchSprite('run')
+    }else{
+        player.switchSprite('idle')
+
+    }
+
+    //jump
+    if(player.velocity.y<0){
+        player.switchSprite('jump')
+
+    }else if(player.velocity.y>0){
+        player.switchSprite('fall')
     }
 
     if(keys.ArrowLeft.pressed&& enemy.lastKey==='ArrowLeft'){
+        enemy.switchSprite('run2')
+
         enemy.velocity.x=-5
     }else if(keys.ArrowRight.pressed&&enemy.lastKey==='ArrowRight'){
+        enemy.switchSprite('run')
+
         enemy.velocity.x=5
+    }else{
+        enemy.switchSprite('idle')
+    }
+    //jump
+    if(enemy.velocity.y<0){
+        enemy.switchSprite('jump')
+
+    }else if(enemy.velocity.y>0){
+        enemy.switchSprite('fall')
     }
 
+
+    //Detect collision and the enemy getting hit
     if(
         rectangularCollision({
             rectangle1:player,
             rectangle2:enemy
         })&&
-        player.isAttackig
+        player.isAttackig&&
+        player.frameCurrent===2
         ){
+            enemy.takeHit()
             player.isAttackig=false
-            enemy.health-=20
+            
             document.querySelector('#enemyHealth').style.width=enemy.health+'%' 
+        }
+        if(player.isAttackig&&player.frameCurrent===2){
+            player.isAttackig=false
         }
 
         if(
@@ -134,12 +253,18 @@ function animate(){
                 rectangle1:enemy,
                 rectangle2:player
             })&&
-            enemy.isAttackig
+            enemy.isAttackig&&
+            enemy.frameCurrent===2
             ){
+                player.takeHit()
                 enemy.isAttackig=false
-                player.health-=20
+                
                 document.querySelector('#playerHealth').style.width=player.health+'%' 
-            }        
+            }  
+            
+            if(enemy.isAttackig&&enemy.frameCurrent===2){
+                enemy.isAttackig=false
+            }
 
 
 }
@@ -149,6 +274,7 @@ function animate(){
 animate()
 
 window.addEventListener('keydown',(event)=>{
+    if(!player.dead){  
     switch(event.key){
         case 'd':
             keys.d.pressed=true
@@ -164,7 +290,9 @@ window.addEventListener('keydown',(event)=>{
         case ' ':
             player.attack()
             break              
-            
+    }}
+    if(!enemy.dead){
+        switch(event.key){            
         case 'ArrowRight':
             keys.ArrowRight.pressed=true
             enemy.lastKey='ArrowRight'
@@ -179,7 +307,7 @@ window.addEventListener('keydown',(event)=>{
         case 'ArrowDown':
             enemy.attack()
             break                      
-    }
+    }}
 })
 
 window.addEventListener('keyup',(event)=>{
