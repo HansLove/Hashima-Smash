@@ -66,6 +66,25 @@ ground.position.y = -1.25;
 ground.receiveShadow = true;
 scene.add(ground);
 
+// Gameplay constants
+const ARENA_HALF_WIDTH = 4.0;
+const GROUND_Y = 0.0;
+const HORIZ_SPEED = 0.12; // units per frame at 60fps
+const HORIZ_ACCEL = 0.06;
+const HORIZ_FRICTION = 0.85;
+const GRAVITY = -0.12;
+const JUMP_VELOCITY = 0.34;
+const MAX_FALL_SPEED = -0.9;
+const ATTACK_DURATION_FRAMES = 14;
+const ATTACK_ACTIVE_START = 5;
+const ATTACK_ACTIVE_END = 10;
+const ATTACK_COOLDOWN_FRAMES = 26;
+const ATTACK_RANGE = 1.1;
+const ATTACK_DAMAGE = 8;
+const HITSTUN_FRAMES = 18;
+const KNOCKBACK_X = 0.25;
+const KNOCKBACK_Y = 0.18;
+
 // Character factory (richer bubble Hashimas)
 const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa];
 
@@ -250,9 +269,18 @@ function startGame() {
   // Spawn players
   state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], 1111 + state.p1Index);
   state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], 2222 + state.p2Index);
-  state.entities.p1.position.set(-1.5, 0, 0);
-  state.entities.p2.position.set(1.5, 0, 0);
-  scene.add(state.entities.p1, state.entities.p2);
+  const p1 = state.entities.p1; const p2 = state.entities.p2;
+  p1.position.set(-1.5, 0.0, 0);
+  p2.position.set(1.5, 0.0, 0);
+  // runtime physics state
+  p1.userData.vx = 0; p1.userData.vy = 0; p1.userData.grounded = true; p1.userData.facing = 1;
+  p2.userData.vx = 0; p2.userData.vy = 0; p2.userData.grounded = true; p2.userData.facing = -1;
+  // attack/hit state
+  p1.userData.attack = { frame: 0, cooldown: 0 };
+  p2.userData.attack = { frame: 0, cooldown: 0 };
+  p1.userData.hitstun = 0;
+  p2.userData.hitstun = 0;
+  scene.add(p1, p2);
 
   // Simple inputs for movement and attack placeholders
   inputs.reset();
@@ -301,35 +329,56 @@ window.addEventListener('keyup', (e) => {
   inputs.keys.delete(e.key);
 });
 
-function updateGame(dt) {
-  if (state.scene !== 'game') return;
-  const p1 = state.entities.p1;
-  const p2 = state.entities.p2;
-  if (!p1 || !p2) return;
-
-  // Basic left/right
-  const move = (node, left, right, jumpKey) => {
-    const speed = 1.2;
-    if (inputs.keys.has(left)) node.position.x -= speed * dt;
-    if (inputs.keys.has(right)) node.position.x += speed * dt;
-    if (inputs.keys.has(jumpKey)) node.position.y = Math.sin(Date.now() * 0.008) * 0.2; else node.position.y *= 0.9;
-  };
-  move(p1, 'a', 'd', 'w');
-  move(p2, 'ArrowLeft', 'ArrowRight', 'ArrowUp');
-
-  // Simple proximity damage when pressing attack
-  const dist = p1.position.distanceTo(p2.position);
-  if (dist < 1.2) {
-    if (inputs.keys.has(' ')) {
-      state.p2Health = Math.max(0, state.p2Health - 0.2);
-      hudP2.style.width = state.p2Health + '%';
+function clamp(v, mn, mx){ return Math.max(mn, Math.min(mx, v)); }
+function flipTowards(a,b){ return b.position.x >= a.position.x ? 1 : -1; }
+function beginAttack(e){ const a=e.userData.attack; if(a.cooldown>0||a.frame>0||e.userData.hitstun>0) return; a.frame=1; }
+function updateAttackAndDamage(attacker, defender){
+  const atk = attacker.userData.attack;
+  if (atk.cooldown>0){ atk.cooldown--; return; }
+  if (atk.frame>0){
+    atk.frame++;
+    const core = attacker.userData.core; if(core) core.material.emissiveIntensity = 0.4 + Math.sin(atk.frame*0.4)*0.25;
+    attacker.scale.set(1 + Math.sin(atk.frame*0.3)*0.05, 1 - Math.sin(atk.frame*0.3)*0.06, 1 + Math.sin(atk.frame*0.3)*0.05);
+    if (atk.frame===ATTACK_ACTIVE_START){ attacker.userData.facing = flipTowards(attacker, defender); }
+    if (atk.frame>=ATTACK_ACTIVE_START && atk.frame<=ATTACK_ACTIVE_END){
+      const dist = attacker.position.distanceTo(defender.position);
+      if (dist<ATTACK_RANGE && defender.userData.hitstun===0){
+        if (defender===state.entities.p2){ state.p2Health=Math.max(0, state.p2Health-ATTACK_DAMAGE*0.1); hudP2.style.width=state.p2Health+'%'; }
+        else { state.p1Health=Math.max(0, state.p1Health-ATTACK_DAMAGE*0.1); hudP1.style.width=state.p1Health+'%'; }
+        defender.userData.hitstun=HITSTUN_FRAMES;
+        const dir = Math.sign(defender.position.x - attacker.position.x) || 1;
+        defender.userData.vx += dir*KNOCKBACK_X;
+        defender.userData.vy += KNOCKBACK_Y;
+        const dcore = defender.userData.core; if(dcore) dcore.material.emissiveIntensity=1.0;
+        defender.scale.set(0.92, 1.08, 0.92);
+      }
     }
-    if (inputs.keys.has('Enter')) {
-      state.p1Health = Math.max(0, state.p1Health - 0.2);
-      hudP1.style.width = state.p1Health + '%';
-    }
+    if (atk.frame>ATTACK_DURATION_FRAMES){ atk.frame=0; atk.cooldown=ATTACK_COOLDOWN_FRAMES; attacker.scale.set(1,1.15,1); const core=attacker.userData.core; if(core) core.material.emissiveIntensity=0.4; }
   }
-  if (state.p1Health <= 0 || state.p2Health <= 0) endGame();
+}
+function applyPhysics(e){
+  e.userData.vy = Math.max(MAX_FALL_SPEED, e.userData.vy + GRAVITY*(1/60));
+  e.position.y += e.userData.vy;
+  const bodyBottom = e.position.y - 0.9*e.scale.y + 0.1;
+  if (bodyBottom <= GROUND_Y - 1.25){ e.position.y = -1.25 + 0.9*e.scale.y - 0.1; e.userData.vy=0; e.userData.grounded=true; }
+  else { e.userData.grounded=false; }
+  e.position.x += e.userData.vx;
+  e.position.x = clamp(e.position.x, -ARENA_HALF_WIDTH, ARENA_HALF_WIDTH);
+  e.userData.vx *= HORIZ_FRICTION;
+}
+function updateGame(dt){
+  if (state.scene!=='game') return;
+  const p1=state.entities.p1, p2=state.entities.p2; if(!p1||!p2) return;
+  const steer=(n,left,right,jump,atk)=>{ if(n.userData.hitstun>0) return; if(inputs.keys.has(left)){ n.userData.vx-=HORIZ_ACCEL; n.userData.facing=-1; } if(inputs.keys.has(right)){ n.userData.vx+=HORIZ_ACCEL; n.userData.facing=1; } if(inputs.keys.has(jump)&&n.userData.grounded){ n.userData.vy=JUMP_VELOCITY; n.userData.grounded=false; } if(inputs.keys.has(atk)) beginAttack(n); };
+  steer(p1,'a','d','w',' ');
+  steer(p2,'ArrowLeft','ArrowRight','ArrowUp','Enter');
+  p1.userData.vx = clamp(p1.userData.vx, -HORIZ_SPEED, HORIZ_SPEED);
+  p2.userData.vx = clamp(p2.userData.vx, -HORIZ_SPEED, HORIZ_SPEED);
+  updateAttackAndDamage(p1,p2);
+  updateAttackAndDamage(p2,p1);
+  for (const n of [p1,p2]){ if(n.userData.hitstun>0) n.userData.hitstun--; n.scale.x += (1 - n.scale.x)*0.15; n.scale.y += (1.15 - n.scale.y)*0.15; n.scale.z += (1 - n.scale.z)*0.15; const core=n.userData.core; if(core) core.material.emissiveIntensity += (0.4 - core.material.emissiveIntensity)*0.1; }
+  applyPhysics(p1); applyPhysics(p2);
+  if (state.p1Health<=0 || state.p2Health<=0) endGame();
 }
 
 function cleanupGameEntities() {
