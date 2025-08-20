@@ -1,3 +1,49 @@
 body{
     background: black;
 }
+
+/* Ensure the 2D canvas and UI render above the 3D scene */
+.div_main canvas{
+    position: relative;
+    z-index: 1;
+}
+
+.div_main > div[style*="position: absolute"]{
+    z-index: 2;
+}
+
+/* New UI layout */
+.screen{ position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 3; color: white; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+.screen.visible{ display: flex; }
+.screen.hidden{ display: none; }
+
+#menu-screen .menu-inner{ display: flex; flex-direction: column; gap: 16px; align-items: center; background: rgba(0,0,0,0.5); padding: 24px 28px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(6px); }
+#menu-screen .title{ margin: 0 0 4px; font-size: 48px; letter-spacing: 1px; text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+#menu-screen .menu-footer{ position: absolute; bottom: 24px; opacity: 0.7; font-size: 14px; }
+
+.btn{ padding: 10px 18px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; border-radius: 8px; transition: all .15s ease; }
+.btn:hover{ background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+.btn.primary{ background: linear-gradient(135deg, #00aa55, #00dd88); border: none; }
+.btn.primary:hover{ filter: brightness(1.05); }
+
+.modal{ position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
+.modal.hidden{ display: none; }
+.modal-content{ width: min(520px, 90vw); background: #0a0a0a; border: 1px solid rgba(255,255,255,0.08); padding: 20px 24px; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.6); }
+
+#select-screen .select-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: min(1000px, 90vw); }
+#select-screen .select-panel{ background: rgba(0,0,0,0.5); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+#select-screen .controls{ display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+#select-screen .select-actions{ position: absolute; bottom: 24px; display: flex; gap: 12px; }
+
+#game-screen .hud{ position: absolute; top: 12px; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; padding: 0 16px; }
+.bar{ position: relative; height: 20px; }
+.bar-bg{ position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06)); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; }
+.bar-fg{ position: absolute; inset: 2px; width: 100%; background: linear-gradient(90deg, #2d7efc, #5ff7ff); border-radius: 8px; }
+.timer{ width: 72px; text-align: center; font-weight: 800; letter-spacing: 2px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 0; }
+.result{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; text-shadow: 0 6px 32px rgba(0,0,0,0.7); }
+.overlay{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; }
+.overlay.hidden{ display: none; }
+.overlay .panel{ background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.12); padding: 20px 24px; border-radius: 12px; backdrop-filter: blur(6px); display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.overlay .panel .title{ font-size: 28px; }
+.overlay .panel .actions{ display: flex; gap: 12px; }
+.overlay .panel .hint{ opacity: 0.7; font-size: 12px; }

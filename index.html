@@ -1,117 +1,97 @@
+<!DOCTYPE html>
 <head>
     <style>
         *{
             box-sizing: border-box;
         }
     </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hashima Smash</title>
 </head>
 
 <body>
-<!-- red container div -->
-<div 
-class="div_main"
-style="position: relative; display: inline-block;">
-    <!-- <p>Hashima Game</p> -->
-    <div style="
-        position: absolute; 
-        display: flex; 
-        width: 100%; 
-        align-items: center;
-        padding: 20px;">
+<!-- App Screens & 3D Root -->
+<div id="three-root" style="position: fixed; inset: 0; z-index: 0;"></div>
 
-        <!-- Hashima life-bar -->
-        <div style="
-        position: relative;
-        height: 30px; 
-        width: 100%;
-        display: flex;
-        justify-content: flex-end;
-        ">
-            <div 
-            style="
-            background-color: hotpink;
-            height: 30px;
-            width: 100%;
-            "
-            ></div>
-            <div 
-            id="playerHealth"
-            style="
-            position: absolute; 
-            background: blue;
-            top:0; 
-            right: 0;
-            width: 100%;
-            bottom: 0;
-            "></div>
-        </div>
-        
-        <!-- Timer -->
-        <div 
-        id="timer"
-        style="
-        background-color: black;
-        flex-shrink: 0; 
-        height: 50px; 
-        width: 100px;
-        align-items: center;
-        display: flex;
-        font-weight: 800;
-        letter-spacing: 0.3em;
-        color: snow;
-        justify-content: center;
-        "
-        >
-            10
-        </div>
-        
-        <!-- Second player life-bar -->
-        <div style="
-        position: relative;
-        height: 30px; 
-        width: 100%;">
-            <div 
-            style="
-            background-color: hotpink;
-            height: 30px;
-            "
-            ></div>
-            <div 
-            id="enemyHealth"
-            style="
-            position: absolute; 
-            background: blue;
-            top:0; 
-            right: 0;
-            left: 0;
-            bottom: 0;
-            "></div>
-        </div>
+<!-- (Legacy 2D UI removed) -->
 
+<!-- Main Menu Screen -->
+<div id="menu-screen" class="screen visible">
+    <div class="menu-inner">
+        <h1 class="title">Hashima Smash</h1>
+        <button id="btn-play" class="btn primary">Play</button>
+        <button id="btn-howto" class="btn">How to Play</button>
     </div>
-
-    <div 
-    id='displayText'
-    style="
-    position: absolute;
-    color: white;
-    align-items: center;
-    justify-content: center;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    font-size: 4rem;
-    font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
-    display: none;
-    ">Tie</div>
-    <canvas> 
-    </canvas>
+    <div class="menu-footer">Digital scarce creatures forged by Proof of Work</div>
+    
+    <div id="howto-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            <p>Pick your Hashima, then battle! Player 1 uses WASD and Space. Player 2 uses Arrow Keys and Enter.</p>
+            <button id="btn-howto-close" class="btn">Close</button>
+        </div>
+    </div>
+    
+    
 </div>
 
-<script src="./js/utils.js"></script>
+<!-- Character Select Screen -->
+<div id="select-screen" class="screen hidden">
+    <div class="select-grid">
+        <div class="select-panel">
+            <h2>Player 1</h2>
+            <div class="controls">
+                <button id="p1-prev" class="btn">Prev</button>
+                <button id="p1-rand" class="btn">Random</button>
+                <button id="p1-next" class="btn">Next</button>
+            </div>
+        </div>
+        <div class="select-panel">
+            <h2>Player 2</h2>
+            <div class="controls">
+                <button id="p2-prev" class="btn">Prev</button>
+                <button id="p2-rand" class="btn">Random</button>
+                <button id="p2-next" class="btn">Next</button>
+            </div>
+        </div>
+    </div>
+    <div class="select-actions">
+        <button id="btn-back-menu" class="btn">Back</button>
+        <button id="btn-start-game" class="btn primary">Start Battle</button>
+    </div>
+</div>
 
-<script src="./js/classes.js"></script>
-<script src="./index.js"></script>
+<!-- Game Screen (overlay HUD) -->
+<div id="game-screen" class="screen hidden">
+    <div class="hud">
+        <div class="bar">
+            <div class="bar-bg"></div>
+            <div id="hud-p1" class="bar-fg"></div>
+        </div>
+        <div id="hud-timer" class="timer">60</div>
+        <div class="bar">
+            <div class="bar-bg"></div>
+            <div id="hud-p2" class="bar-fg"></div>
+        </div>
+    </div>
+    <div id="hud-result" class="result hidden">Tie</div>
+    <div id="post-match" class="overlay hidden">
+        <div class="panel">
+            <div class="title">Match Over</div>
+            <div class="actions">
+                <button id="btn-rematch" class="btn primary">Rematch</button>
+                <button id="btn-select" class="btn">Character Select</button>
+                <button id="btn-menu" class="btn">Main Menu</button>
+            </div>
+            <div class="hint">Shortcuts: Enter = Rematch, C = Select, Esc = Menu</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pin to a version that exposes non-module OrbitControls on the global THREE namespace -->
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="./js/app.js"></script>
 <link rel="stylesheet" href="./style/style_1.css">
 </body>

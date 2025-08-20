@@ -4,7 +4,7 @@ const c=canvas.getContext('2d')
 canvas.width=window.innerWidth-8
 canvas.height=920
 
-c.fillRect(0,0,canvas.width,canvas.height)
+
 
 const gravity=0.5
 
@@ -179,8 +179,7 @@ decreaseTimer()
 
 function animate(){
     window.requestAnimationFrame(animate)
-    c.fillStyle='black'
-    c.fillRect(0,0,canvas.width,canvas.height)
+    c.clearRect(0,0,canvas.width,canvas.height)
     
     background.update()
     
