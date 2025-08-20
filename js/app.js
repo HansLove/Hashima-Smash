@@ -66,31 +66,102 @@ ground.position.y = -1.25;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// Character factory (placeholder bubble Hashimas)
+// Character factory (richer bubble Hashimas)
 const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa];
 
-function createBubbleHashima(color) {
+function seededRandom(seed) {
+  let s = (seed >>> 0) || 1;
+  return function next() {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function createBubbleHashima(color, seed = 1) {
+  const rand = seededRandom(seed);
   const group = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(0.9, 48, 48),
-    new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.5 })
-  );
+
+  // Body: slightly stretched sphere for an egg-like silhouette
+  const bodyMat = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.45 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 48, 48), bodyMat);
+  body.scale.set(1, 1.15, 1);
   body.castShadow = true;
   group.add(body);
 
-  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  // Inner emissive core
+  const coreColor = new THREE.Color(color).offsetHSL(0, 0, 0.2);
+  const coreMat = new THREE.MeshStandardMaterial({ color: coreColor.getHex(), emissive: coreColor.getHex(), emissiveIntensity: 0.4, metalness: 0.1, roughness: 0.8 });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), coreMat);
+  core.castShadow = false;
+  group.add(core);
+
+  // Eyes and pupils
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
   const eyeDarkMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
   const eyeWhiteGeo = new THREE.SphereGeometry(0.16, 16, 16);
   const eyeDarkGeo = new THREE.SphereGeometry(0.07, 16, 16);
 
-  const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eL.position.set(-0.26, 0.1, 0.75);
-  const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eLi.position.set(-0.26, 0.08, 0.88);
-  const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eR.position.set(0.26, 0.1, 0.75);
-  const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eRi.position.set(0.26, 0.08, 0.88);
+  const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eL.position.set(-0.26, 0.12, 0.76);
+  const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eLi.position.set(-0.26, 0.10, 0.9);
+  const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eR.position.set(0.26, 0.12, 0.76);
+  const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eRi.position.set(0.26, 0.10, 0.9);
   for (const m of [eL, eLi, eR, eRi]) { m.castShadow = true; group.add(m); }
 
-  // Simple idle motion
-  group.userData.idle = { t: Math.random() * Math.PI * 2 };
+  // Mouth (tiny ring)
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 8, 24), new THREE.MeshStandardMaterial({ color: 0x282828, roughness: 0.3 }));
+  mouth.position.set(0, -0.05, 0.85);
+  group.add(mouth);
+
+  // Optional stripe ring
+  let stripe = null;
+  if (rand() > 0.4) {
+    const stripeColor = new THREE.Color(color).offsetHSL(0.06, 0.1, 0.15);
+    stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.03, 12, 64), new THREE.MeshStandardMaterial({ color: stripeColor.getHex(), metalness: 0.25, roughness: 0.35 }));
+    stripe.rotation.x = Math.PI * (0.15 + rand() * 0.3);
+    stripe.rotation.y = Math.PI * (rand() * 2);
+    group.add(stripe);
+  }
+
+  // Optional halo or horns
+  let halo = null; let horns = [];
+  if (rand() > 0.6) {
+    halo = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.02, 8, 48), new THREE.MeshStandardMaterial({ color: 0xffee88, emissive: 0xffdd66, emissiveIntensity: 0.5 }));
+    halo.position.y = 0.75;
+    halo.rotation.x = Math.PI / 2;
+    group.add(halo);
+  } else if (rand() > 0.5) {
+    const hornMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
+    const hornGeo = new THREE.ConeGeometry(0.12, 0.25, 12);
+    const h1 = new THREE.Mesh(hornGeo, hornMat);
+    const h2 = new THREE.Mesh(hornGeo, hornMat);
+    h1.position.set(-0.25, 0.55, 0.35); h1.rotation.z = Math.PI * -0.1; h1.rotation.x = Math.PI * -0.2;
+    h2.position.set(0.25, 0.55, 0.35);  h2.rotation.z = Math.PI * 0.1;  h2.rotation.x = Math.PI * -0.2;
+    for (const h of [h1, h2]) { h.castShadow = true; group.add(h); horns.push(h); }
+  }
+
+  // Floating appendages (arms)
+  const arms = new THREE.Group();
+  const armMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).offsetHSL(0, -0.05, 0.05).getHex(), roughness: 0.5 });
+  for (let i = 0; i < 2; i++) {
+    const s = 0.18 + rand() * 0.05;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 16, 16), armMat);
+    hand.position.set(i === 0 ? -1.2 : 1.2, 0.05, 0);
+    hand.castShadow = true;
+    arms.add(hand);
+  }
+  group.add(arms);
+
+  // Store anim parts
+  group.userData = {
+    idle: { t: Math.random() * Math.PI * 2 },
+    blinkT: rand() * Math.PI * 2,
+    pupils: [eLi, eRi],
+    core,
+    halo,
+    stripe,
+    horns,
+    arms
+  };
   return group;
 }
 
@@ -143,8 +214,8 @@ btnStartGame.addEventListener('click', startGame);
 
 // Selection preview meshes
 const preview = {
-  p1: createBubbleHashima(HASHIMA_COLORS[state.p1Index]),
-  p2: createBubbleHashima(HASHIMA_COLORS[state.p2Index])
+  p1: createBubbleHashima(HASHIMA_COLORS[state.p1Index], 101),
+  p2: createBubbleHashima(HASHIMA_COLORS[state.p2Index], 202)
 };
 preview.p1.position.set(-2.1, 0, 0);
 preview.p2.position.set(2.1, 0, 0);
@@ -153,8 +224,8 @@ scene.add(preview.p1, preview.p2);
 function refreshSelectPreview() {
   // Replace materials/colors
   scene.remove(preview.p1, preview.p2);
-  preview.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index]);
-  preview.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index]);
+  preview.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], 101);
+  preview.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], 202);
   preview.p1.position.set(-2.1, 0, 0);
   preview.p2.position.set(2.1, 0, 0);
   scene.add(preview.p1, preview.p2);
@@ -177,8 +248,8 @@ function startGame() {
   scene.remove(preview.p1, preview.p2);
 
   // Spawn players
-  state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index]);
-  state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index]);
+  state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], 1111 + state.p1Index);
+  state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], 2222 + state.p2Index);
   state.entities.p1.position.set(-1.5, 0, 0);
   state.entities.p2.position.set(1.5, 0, 0);
   scene.add(state.entities.p1, state.entities.p2);
@@ -310,8 +381,44 @@ function animateIdle(node, time) {
   if (!node || !node.userData) return;
   node.userData.idle.t += 0.02;
   const t = node.userData.idle.t + time * 0.001;
-  node.position.y = Math.sin(t * 2) * 0.05;
+  node.position.y = Math.sin(t * 2) * 0.06;
   node.rotation.y += 0.004;
+
+  // Pupils follow opponent/controls subtly
+  const pupils = node.userData.pupils || [];
+  for (const p of pupils) {
+    p.position.x = Math.sign(Math.sin(t * 0.7)) * 0.26;
+    p.position.y = 0.10 + Math.sin(t * 1.3) * 0.005;
+    p.position.z = 0.9 + Math.cos(t * 1.1) * 0.005;
+  }
+
+  // Blink by scaling eyes on Y
+  if (node.userData.blinkT !== undefined) {
+    node.userData.blinkT += 0.07;
+    const blink = Math.max(0, Math.sin(node.userData.blinkT)) ** 16; // spiky sine
+    for (const child of node.children) {
+      if (child.geometry && child.geometry.type === 'SphereGeometry' && child.material && child.material.color && child !== node.userData.core) {
+        // Heuristic: treat small eye whites as blink targets near face front
+        if (child.scale && child.position && child.position.z > 0.7 && child.geometry.parameters && child.geometry.parameters.radius < 0.2) {
+          child.scale.y = 1 - blink * 0.88;
+        }
+      }
+    }
+  }
+
+  // Arms float
+  if (node.userData.arms) {
+    const spread = 1.2 + Math.sin(t * 1.5) * 0.1;
+    const bob = Math.sin(t * 2.1) * 0.05;
+    node.userData.arms.children[0].position.set(-spread, 0.05 + bob, 0);
+    node.userData.arms.children[1].position.set(spread, 0.05 - bob, 0);
+  }
+
+  // Halo gentle spin or horn subtle tilt
+  if (node.userData.halo) node.userData.halo.rotation.z += 0.01;
+  if (node.userData.horns && node.userData.horns.length) {
+    for (const h of node.userData.horns) h.rotation.y += 0.002;
+  }
 }
 
 // Main loop
