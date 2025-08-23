@@ -35,6 +35,14 @@ body{
 .modal{ position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
 .modal.hidden{ display: none; }
 .modal-content{ width: min(520px, 90vw); background: #0a0a0a; border: 1px solid rgba(255,255,255,0.08); padding: 20px 24px; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.6); }
+.modal-content h2{ margin: 0 0 16px; color: #00dd88; }
+.modal-content p{ margin: 0 0 12px; line-height: 1.5; }
+
+.controls-scheme{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+.player-controls{ background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+.player-controls h3{ margin: 0 0 12px; color: #00aa55; font-size: 16px; }
+.player-controls p{ margin: 0 0 8px; font-size: 14px; opacity: 0.9; }
+.player-controls strong{ color: #5ff7ff; }
 
 #select-screen .select-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: min(1000px, 90vw); }
 #select-screen .select-panel{ background: rgba(0,0,0,0.5); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
@@ -58,3 +66,19 @@ body{
 .overlay .panel .title{ font-size: 28px; }
 .overlay .panel .actions{ display: flex; gap: 12px; }
 .overlay .panel .hint{ opacity: 0.7; font-size: 12px; }
+
+.status-indicator{ position: absolute; top: 35px; font-size: 12px; text-align: center; opacity: 0.8; }
+.status-indicator.shield{ color: #00aaff; }
+.status-indicator.roll{ color: #ffaa00; }
+.status-indicator.invincible{ color: #ffff00; animation: pulse 0.5s ease-in-out infinite; }
+.status-indicator.perfect-shield{ color: #00ffff; font-weight: bold; animation: perfectShield 0.3s ease-in-out infinite; }
+.status-indicator.combo{ color: #ff00ff; font-weight: bold; animation: combo 0.2s ease-in-out infinite; }
+.status-indicator.air-attack{ color: #00ff88; }
+.status-indicator.dashing{ color: #ff8800; }
+.status-indicator.crouching{ color: #888888; }
+.status-indicator.hitstun{ color: #ff0000; animation: hitstun 0.1s ease-in-out infinite; }
+.status-indicator.landing{ color: #8800ff; }
+
+@keyframes perfectShield{ 0%, 100% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes combo{ 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+@keyframes hitstun{ 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }

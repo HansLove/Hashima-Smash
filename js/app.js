@@ -1,5 +1,28 @@
 // App bootstrap: screens, state, and 3D scene orchestration (globals via script tags)
 
+// Game constants - Smash Bros style
+const ARENA_HALF_WIDTH = 8;
+const GROUND_Y = 0;
+const HORIZ_SPEED = 0.15;
+const HORIZ_ACCEL = 0.008;
+const HORIZ_FRICTION = 0.85;
+const GRAVITY = 0.012;
+const JUMP_VELOCITY = 0.25;
+const MAX_FALL_SPEED = 0.3;
+const ATTACK_COOLDOWN_FRAMES = 8;
+const HITSTUN_FRAMES = 8;
+const DAMAGE_STALING = 0.95;
+const BASE_KNOCKBACK = 0.8;
+const KNOCKBACK_GROWTH = 0.12;
+const SHIELD_FRAMES = 30;
+const ROLL_FRAMES = 20;
+const ROLL_SPEED = 0.2;
+const ROLL_INVINCIBILITY = 15;
+const FAST_FALL_MULTIPLIER = 1.5;
+const COMBO_WINDOW = 15;
+const AIR_ATTACK_MULTIPLIER = 0.8;
+const PERFECT_SHIELD_FRAMES = 3;
+
 // Screens
 const screenMenu = document.getElementById('menu-screen');
 const screenSelect = document.getElementById('select-screen');
@@ -11,6 +34,8 @@ const hudP1 = document.getElementById('hud-p1');
 const hudP2 = document.getElementById('hud-p2');
 const hudTimer = document.getElementById('hud-timer');
 const hudResult = document.getElementById('hud-result');
+const statusP1 = document.getElementById('status-p1');
+const statusP2 = document.getElementById('status-p2');
 const postMatch = document.getElementById('post-match');
 const btnRematch = document.getElementById('btn-rematch');
 const btnSelect = document.getElementById('btn-select');
@@ -130,25 +155,6 @@ for (let i = 0; i < 20; i++) {
   backgroundBubbles.add(bubble);
 }
 scene.add(backgroundBubbles);
-
-// Gameplay constants
-const ARENA_HALF_WIDTH = 4.0;
-const GROUND_Y = 0.0;
-const HORIZ_SPEED = 0.12; // units per frame at 60fps
-const HORIZ_ACCEL = 0.06;
-const HORIZ_FRICTION = 0.85;
-const GRAVITY = -0.12;
-const JUMP_VELOCITY = 0.34;
-const MAX_FALL_SPEED = -0.9;
-const ATTACK_DURATION_FRAMES = 14;
-const ATTACK_ACTIVE_START = 5;
-const ATTACK_ACTIVE_END = 10;
-const ATTACK_COOLDOWN_FRAMES = 26;
-const ATTACK_RANGE = 1.1;
-const ATTACK_DAMAGE = 8;
-const HITSTUN_FRAMES = 18;
-const KNOCKBACK_X = 0.25;
-const KNOCKBACK_Y = 0.18;
 
 // Character factory (three distinct bubble breeds)
 const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa, 0xff6b35, 0x8e44ad, 0x16a085, 0xe74c3c];
@@ -742,6 +748,7 @@ const state = {
   p2Health: 100,
   timer: 60,
   timerId: 0,
+  gameRunning: false, // New flag to track if game is actually running
   entities: {
     p1: null,
     p2: null
@@ -750,10 +757,26 @@ const state = {
 
 // Helper: screen switching
 function showScreen(name) {
-  const on = (el, v) => { el.classList.toggle('visible', v); el.classList.toggle('hidden', !v); };
+  // If switching away from game, stop the game
+  if (state.scene === 'game' && name !== 'game') {
+    state.gameRunning = false;
+    if (state.timerId) {
+      clearInterval(state.timerId);
+      state.timerId = 0;
+    }
+  }
+  
+  const on = (el, v) => { 
+    el.classList.toggle('visible', v); 
+    el.classList.toggle('hidden', !v); 
+  };
+  
   on(screenMenu, name === 'menu');
   on(screenSelect, name === 'select');
   on(screenGame, name === 'game');
+  
+  // Update state
+  state.scene = name;
 }
 
 // Menu handlers
@@ -812,41 +835,81 @@ function refreshSelectPreview() {
 
 // Start the game scene
 function startGame() {
+  console.log('Starting game...');
+  
+  // Set game state
   state.scene = 'game';
+  state.gameRunning = true;
+  
+  // Reset all game values
+  state.p1Health = 100; 
+  state.p2Health = 100; 
+  state.timer = 60;
+  
+  // Show game screen
   showScreen('game');
-  // 3D-only game; legacy 2D UI removed
-  // Reset HUD and timer
-  state.p1Health = 100; state.p2Health = 100; state.timer = 60;
+  
+  // Reset HUD completely
   hudP1.style.width = '100%';
   hudP2.style.width = '100%';
   hudTimer.textContent = String(state.timer);
+  
+  // CRITICAL: Hide all result elements
   hudResult.classList.add('hidden');
   postMatch.classList.add('hidden');
-
+  
+  // Force hide any other elements that might be visible
+  const allResults = document.querySelectorAll('.result, .overlay');
+  allResults.forEach(el => {
+    el.classList.add('hidden');
+  });
+  
   // Clear select previews
   scene.remove(preview.p1, preview.p2);
 
   // Spawn players
   state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 1111 + state.p1Index);
   state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 2222 + state.p2Index);
-  const p1 = state.entities.p1; const p2 = state.entities.p2;
+  const p1 = state.entities.p1; 
+  const p2 = state.entities.p2;
+  
   p1.position.set(-1.5, 0.0, 0);
   p2.position.set(1.5, 0.0, 0);
-  // runtime physics state
+  
+  // Initialize runtime physics state
   p1.userData.vx = 0; p1.userData.vy = 0; p1.userData.grounded = true; p1.userData.facing = 1;
   p2.userData.vx = 0; p2.userData.vy = 0; p2.userData.grounded = true; p2.userData.facing = -1;
-  // attack/hit state
-  p1.userData.attack = { frame: 0, cooldown: 0 };
-  p2.userData.attack = { frame: 0, cooldown: 0 };
-  p1.userData.hitstun = 0;
-  p2.userData.hitstun = 0;
+  
+  // Initialize attack/hit state with proper attack types
+  p1.userData.attack = { frame: 0, cooldown: 0, type: 'NEUTRAL' };
+  p2.userData.attack = { frame: 0, cooldown: 0, type: 'NEUTRAL' };
+  p1.userData.hitstun = 0; p2.userData.hitstun = 0;
+  
+  // Initialize new mechanics
+  p1.userData.shielding = false; p2.userData.shielding = false;
+  p1.userData.rolling = false; p2.userData.rolling = false;
+  p1.userData.invincible = false; p2.userData.invincible = false;
+  p1.userData.landingLag = 0; p2.userData.landingLag = 0;
+  p1.userData.moveStale = {}; p2.userData.moveStale = {};
+  
+  // Store original colors for shield effects
+  p1.userData.originalColor = HASHIMA_COLORS[state.p1Index];
+  p2.userData.originalColor = HASHIMA_COLORS[state.p2Index];
+  
   scene.add(p1, p2);
 
-  // Simple inputs for movement and attack placeholders
+  // Reset inputs
   inputs.reset();
-  if (state.timerId) clearInterval(state.timerId);
+  
+  // Clear any existing timer
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = 0;
+  }
+  
+  // Start new timer
   state.timerId = setInterval(() => {
-    if (state.scene !== 'game') return;
+    if (state.scene !== 'game' || !state.gameRunning) return;
     if (state.timer > 0) {
       state.timer -= 1;
       hudTimer.textContent = String(state.timer);
@@ -854,15 +917,36 @@ function startGame() {
       endGame();
     }
   }, 1000);
+  
+
 }
 
 function endGame() {
-  clearInterval(state.timerId);
-  state.timerId = 0;
+  // Only end if game is actually running
+  if (!state.gameRunning) {
+    return;
+  }
+  
+  // Stop the game
+  state.gameRunning = false;
+  
+  // Clear timer
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = 0;
+  }
+  
+  // Determine winner
+  let resultText = 'Tie';
+  if (state.p1Health > state.p2Health) {
+    resultText = 'Player I Wins';
+  } else if (state.p2Health > state.p1Health) {
+    resultText = 'Player II Wins';
+  }
+  
+  // Show results
+  hudResult.textContent = resultText;
   hudResult.classList.remove('hidden');
-  if (state.p1Health === state.p2Health) hudResult.textContent = 'Tie';
-  else if (state.p1Health > state.p2Health) hudResult.textContent = 'Player I Wins';
-  else hudResult.textContent = 'Player II Wins';
   postMatch.classList.remove('hidden');
 }
 
@@ -891,13 +975,116 @@ window.addEventListener('keyup', (e) => {
 
 function clamp(v, mn, mx){ return Math.max(mn, Math.min(mx, v)); }
 function flipTowards(a,b){ return b.position.x >= a.position.x ? 1 : -1; }
-function beginAttack(e){ const a=e.userData.attack; if(a.cooldown>0||a.frame>0||e.userData.hitstun>0) return; a.frame=1; }
+
+// New attack functions for Smash Bros style
+function beginAttack(entity, attackType) { 
+  const a = entity.userData.attack; 
+  if(a.cooldown > 0 || a.frame > 0 || entity.userData.hitstun > 0 || entity.userData.shielding) return; 
+  a.frame = 1; 
+  a.type = attackType;
+}
+
+// Shield mechanics
+function toggleShield(entity, isShielding) {
+  if (entity.userData.hitstun > 0) return;
+  
+  if (isShielding && !entity.userData.shielding) {
+    entity.userData.shielding = true;
+    entity.userData.shieldFrames = SHIELD_FRAMES;
+    // Visual shield effect
+    entity.scale.setScalar(0.9);
+    if (entity.userData.core) {
+      entity.userData.core.material.emissiveIntensity = 0.8;
+      entity.userData.core.material.color.setHex(0x00aaff);
+    }
+  } else if (!isShielding && entity.userData.shielding) {
+    entity.userData.shielding = false;
+    entity.scale.copy(entity.userData.originalScale);
+    if (entity.userData.core) {
+      entity.userData.core.material.emissiveIntensity = 0.6;
+      entity.userData.core.material.color.setHex(entity.userData.originalColor || 0xffffff);
+    }
+  }
+  
+  // Check for perfect shield timing
+  if (isShielding) {
+    checkPerfectShield(entity);
+  }
+}
+
+// Roll mechanics
+function beginRoll(entity, direction) {
+  if (entity.userData.hitstun > 0 || entity.userData.rolling || entity.userData.shielding) return;
+  
+  entity.userData.rolling = true;
+  entity.userData.rollFrames = ROLL_FRAMES;
+  entity.userData.rollDirection = direction;
+  entity.userData.invincible = true;
+  entity.userData.invincibilityFrames = ROLL_INVINCIBILITY;
+  
+  // Roll movement
+  entity.userData.vx = direction * ROLL_SPEED;
+  entity.userData.vy = 0.1; // Small hop during roll
+}
+
+// Fast fall mechanics
+function fastFall(entity) {
+  if (entity.userData.vy < 0 && !entity.userData.grounded) {
+    entity.userData.vy *= FAST_FALL_MULTIPLIER;
+  }
+}
+
+// Update status indicators
+function updateStatusIndicators() {
+  const p1 = state.entities.p1;
+  const p2 = state.entities.p2;
+  
+  if (p1 && p2) {
+    // Player 1 status
+    let p1Status = '';
+    if (p1.userData.perfectShield) p1Status = 'Perfect Shield!';
+    else if (p1.userData.shielding) p1Status = 'Shield';
+    else if (p1.userData.rolling) p1Status = 'Roll';
+    else if (p1.userData.invincible) p1Status = 'Invincible';
+    else if (p1.userData.hitstun > 0) p1Status = 'Hitstun';
+    else if (p1.userData.landingLag > 0) p1Status = 'Landing';
+    else if (p1.userData.combo && p1.userData.combo.count > 1) p1Status = `Combo x${p1.userData.combo.count}`;
+    else if (p1.userData.airAttack) p1Status = 'Air Attack';
+    else if (p1.userData.dashing) p1Status = 'Dashing';
+    else if (p1.userData.crouching) p1Status = 'Crouching';
+    
+    statusP1.textContent = p1Status;
+    statusP1.className = 'status-indicator ' + (p1Status.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+    
+    // Player 2 status
+    let p2Status = '';
+    if (p2.userData.perfectShield) p2Status = 'Perfect Shield!';
+    else if (p2.userData.shielding) p2Status = 'Shield';
+    else if (p2.userData.rolling) p2Status = 'Roll';
+    else if (p2.userData.invincible) p2Status = 'Invincible';
+    else if (p2.userData.hitstun > 0) p2Status = 'Hitstun';
+    else if (p2.userData.landingLag > 0) p2Status = 'Landing';
+    else if (p2.userData.combo && p2.userData.combo.count > 1) p2Status = `Combo x${p2.userData.combo.count}`;
+    else if (p2.userData.airAttack) p2Status = 'Air Attack';
+    else if (p2.userData.dashing) p2Status = 'Dashing';
+    else if (p2.userData.crouching) p2Status = 'Crouching';
+    
+    statusP2.textContent = p2Status;
+    statusP2.className = 'status-indicator ' + (p2Status.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+  }
+}
+
+// Enhanced attack system with better frame data
 function updateAttackAndDamage(attacker, defender){
   const atk = attacker.userData.attack;
   if (atk.cooldown>0){ atk.cooldown--; return; }
+  
   if (atk.frame>0){
     atk.frame++;
-    const core = attacker.userData.core; if(core) core.material.emissiveIntensity = 0.6 + Math.sin(atk.frame*0.4)*0.4;
+    const attackData = ATTACK_TYPES[atk.type];
+    const core = attacker.userData.core; 
+    
+    if(core) core.material.emissiveIntensity = 0.6 + Math.sin(atk.frame*0.4)*0.4;
     
     // Enhanced attack scaling with breathing effect
     const attackScale = 1 + Math.sin(atk.frame*0.3)*0.08;
@@ -920,7 +1107,7 @@ function updateAttackAndDamage(attacker, defender){
     }
     
     // Animate arms during attack
-    if (attacker.userData.arms && atk.frame >= ATTACK_ACTIVE_START && atk.frame <= ATTACK_ACTIVE_END) {
+    if (attacker.userData.arms && atk.frame >= attackData.startup && atk.frame <= attackData.active) {
       const armChildren = attacker.userData.arms.children;
       if (armChildren.length >= 6) {
         const breed = attacker.userData.breed;
@@ -960,19 +1147,76 @@ function updateAttackAndDamage(attacker, defender){
       }
     }
     
-    if (atk.frame===ATTACK_ACTIVE_START){ attacker.userData.facing = flipTowards(attacker, defender); }
-    if (atk.frame>=ATTACK_ACTIVE_START && atk.frame<=ATTACK_ACTIVE_END){
+    // Attack hit detection
+    if (atk.frame === attackData.startup){ 
+      attacker.userData.facing = flipTowards(attacker, defender); 
+      
+      // Add combo tracking
+      addCombo(attacker, atk.type);
+      
+      // Check if it's an air attack
+      if (isAirAttack(attacker)) {
+        attacker.userData.airAttack = true;
+      }
+    }
+    
+    if (atk.frame >= attackData.startup && atk.frame <= attackData.active){
       const dist = attacker.position.distanceTo(defender.position);
-      if (dist<ATTACK_RANGE && defender.userData.hitstun===0){
-        if (defender===state.entities.p2){ state.p2Health=Math.max(0, state.p2Health-ATTACK_DAMAGE*0.1); hudP2.style.width=state.p2Health+'%'; }
-        else { state.p1Health=Math.max(0, state.p1Health-ATTACK_DAMAGE*0.1); hudP1.style.width=state.p1Health+'%'; }
-        defender.userData.hitstun=HITSTUN_FRAMES;
-        const dir = Math.sign(defender.position.x - attacker.position.x) || 1;
-        defender.userData.vx += dir*KNOCKBACK_X;
-        defender.userData.vy += KNOCKBACK_Y;
-        const dcore = defender.userData.core; if(dcore) dcore.material.emissiveIntensity=1.0;
+      if (dist < attackData.range && defender.userData.hitstun === 0 && !defender.userData.shielding){
         
-        // Enhanced hit effect
+        // Calculate damage with staling and modifiers
+        let damage = attackData.damage * Math.pow(DAMAGE_STALING, attacker.userData.moveStale[atk.type] || 0);
+        
+        // Air attack penalty
+        if (attacker.userData.airAttack) {
+          damage *= AIR_ATTACK_MULTIPLIER;
+        }
+        
+        // Combo bonus
+        if (attacker.userData.combo && attacker.userData.combo.count > 1) {
+          damage *= (1 + attacker.userData.combo.count * 0.1);
+        }
+        
+        // Dash attack bonus
+        if (attacker.userData.dashing) {
+          damage *= 1.2;
+        }
+        
+        // Ensure damage is positive and reasonable
+        damage = Math.max(0.1, Math.min(damage, 50));
+        
+        // Update health with safety bounds
+        if (defender === state.entities.p2){ 
+          state.p2Health = Math.max(0, state.p2Health - damage * 0.1); 
+          hudP2.style.width = state.p2Health + '%'; 
+        } else { 
+          state.p1Health = Math.max(0, state.p1Health - damage * 0.1); 
+          hudP1.style.width = state.p1Health + '%'; 
+        }
+        
+        // Debug: Log health after damage
+        console.log('Health after attack:', state.p1Health, state.p2Health);
+        
+        // Apply hitstun and knockback
+        defender.userData.hitstun = HITSTUN_FRAMES;
+        const dir = Math.sign(defender.position.x - attacker.position.x) || 1;
+        
+        // Calculate knockback based on damage
+        const defenderDamage = defender === state.entities.p2 ? (100 - state.p2Health) : (100 - state.p1Health);
+        const knockbackMultiplier = BASE_KNOCKBACK + (defenderDamage * KNOCKBACK_GROWTH);
+        let finalKnockback = attackData.knockback * knockbackMultiplier;
+        
+        // Combo knockback reduction
+        if (attacker.userData.combo && attacker.userData.combo.count > 1) {
+          finalKnockback *= (1 - attacker.userData.combo.count * 0.05);
+        }
+        
+        defender.userData.vx += dir * finalKnockback;
+        defender.userData.vy += finalKnockback * 0.5;
+        
+        // Visual hit effects
+        const dcore = defender.userData.core; 
+        if(dcore) dcore.material.emissiveIntensity = 1.0;
         defender.scale.set(0.9, 1.1, 0.9);
         
         // Flash particles on hit
@@ -983,13 +1227,19 @@ function updateAttackAndDamage(attacker, defender){
             particle.material.color.setHex(0xffffff);
           }
         }
+        
+        // Increment move staling
+        if (!attacker.userData.moveStale) attacker.userData.moveStale = {};
+        attacker.userData.moveStale[atk.type] = (attacker.userData.moveStale[atk.type] || 0) + 1;
       }
     }
-    if (atk.frame>ATTACK_DURATION_FRAMES){ 
-      atk.frame=0; 
-      atk.cooldown=ATTACK_COOLDOWN_FRAMES; 
+    
+    // End attack
+    if (atk.frame > attackData.endlag){ 
+      atk.frame = 0; 
+      atk.cooldown = ATTACK_COOLDOWN_FRAMES; 
       attacker.scale.copy(attacker.userData.originalScale); 
-      const core=attacker.userData.core; if(core) core.material.emissiveIntensity=0.6; 
+      const core = attacker.userData.core; if(core) core.material.emissiveIntensity = 0.6; 
       
       // Reset particles
       if (attacker.userData.particles) {
@@ -1013,36 +1263,247 @@ function updateAttackAndDamage(attacker, defender){
     }
   }
 }
-function applyPhysics(e){
-  e.userData.vy = Math.max(MAX_FALL_SPEED, e.userData.vy + GRAVITY*(1/60));
-  e.position.y += e.userData.vy;
-  const bodyBottom = e.position.y - 0.9*e.scale.y + 0.1;
-  if (bodyBottom <= GROUND_Y - 1.25){ e.position.y = -1.25 + 0.9*e.scale.y - 0.1; e.userData.vy=0; e.userData.grounded=true; }
-  else { e.userData.grounded=false; }
-  e.position.x += e.userData.vx;
-  e.position.x = clamp(e.position.x, -ARENA_HALF_WIDTH, ARENA_HALF_WIDTH);
-  e.userData.vx *= HORIZ_FRICTION;
+function applyPhysics(entity){
+  // Handle rolling
+  if (entity.userData.rolling) {
+    entity.userData.rollFrames--;
+    if (entity.userData.rollFrames <= 0) {
+      entity.userData.rolling = false;
+      entity.userData.invincible = false;
+    }
+  }
+  
+  // Handle shielding
+  if (entity.userData.shielding) {
+    entity.userData.shieldFrames--;
+    if (entity.userData.shieldFrames <= 0) {
+      toggleShield(entity, false); // Auto-release shield
+    }
+  }
+  
+  // Handle invincibility frames
+  if (entity.userData.invincible) {
+    entity.userData.invincibilityFrames--;
+    if (entity.userData.invincibilityFrames <= 0) {
+      entity.userData.invincible = false;
+    }
+    
+    // Visual invincibility effect
+    const flash = Math.floor(entity.userData.invincibilityFrames / 2) % 2;
+    entity.visible = flash === 0;
+  }
+  
+  // Apply gravity and movement
+  entity.userData.vy = Math.max(MAX_FALL_SPEED, entity.userData.vy + GRAVITY*(1/60));
+  entity.position.y += entity.userData.vy;
+  
+  // Ground collision
+  const bodyBottom = entity.position.y - entity.userData.originalScale.y * 0.9 + 0.1;
+  if (bodyBottom <= GROUND_Y - 1.25){ 
+    entity.position.y = -1.25 + entity.userData.originalScale.y * 0.9 - 0.1; 
+    entity.userData.vy = 0; 
+    entity.userData.grounded = true;
+    
+    // Landing lag
+    if (entity.userData.vy < -0.3) {
+      entity.userData.landingLag = 4;
+    }
+  } else { 
+    entity.userData.grounded = false; 
+  }
+  
+  // Horizontal movement
+  entity.position.x += entity.userData.vx;
+  entity.position.x = clamp(entity.position.x, -ARENA_HALF_WIDTH, ARENA_HALF_WIDTH);
+  
+  // Apply friction (less friction when rolling)
+  if (!entity.userData.rolling) {
+    entity.userData.vx *= HORIZ_FRICTION;
+  }
+  
+  // Handle landing lag
+  if (entity.userData.landingLag > 0) {
+    entity.userData.landingLag--;
+    entity.userData.vx *= 0.5; // Reduced movement during landing lag
+  }
 }
 function updateGame(dt){
-  if (state.scene!=='game') return;
-  const p1=state.entities.p1, p2=state.entities.p2; if(!p1||!p2) return;
-  const steer=(n,left,right,jump,atk)=>{ if(n.userData.hitstun>0) return; if(inputs.keys.has(left)){ n.userData.vx-=HORIZ_ACCEL; n.userData.facing=-1; } if(inputs.keys.has(right)){ n.userData.vx+=HORIZ_ACCEL; n.userData.facing=1; } if(inputs.keys.has(jump)&&n.userData.grounded){ n.userData.vy=JUMP_VELOCITY; n.userData.grounded=false; } if(inputs.keys.has(atk)) beginAttack(n); };
-  steer(p1,'a','d','w',' ');
-  steer(p2,'ArrowLeft','ArrowRight','ArrowUp','Enter');
+  // Only update if we're in the game scene AND the game is actually running
+  if (state.scene !== 'game' || !state.gameRunning) {
+    return;
+  }
+  
+  const p1 = state.entities.p1;
+  const p2 = state.entities.p2;
+  
+  if (!p1 || !p2) {
+    console.log('Missing entities, skipping update');
+    return;
+  }
+  
+  // Health validation check - ensure health is never negative
+  if (state.p1Health < 0 || state.p2Health < 0 || isNaN(state.p1Health) || isNaN(state.p2Health)) {
+    console.log('Health corruption detected, resetting:', state.p1Health, state.p2Health);
+    state.p1Health = Math.max(0, state.p1Health);
+    state.p2Health = Math.max(0, state.p2Health);
+    hudP1.style.width = state.p1Health + '%';
+    hudP2.style.width = state.p2Health + '%';
+  }
+  
+  // Player 1 controls (WASD + Space/Shift/Ctrl/Alt)
+  if (p1.userData.hitstun <= 0 && !p1.userData.rolling) {
+    // Movement
+    if(inputs.keys.has('a')){ p1.userData.vx -= HORIZ_ACCEL; p1.userData.facing = -1; }
+    if(inputs.keys.has('d')){ p1.userData.vx += HORIZ_ACCEL; p1.userData.facing = 1; }
+    
+    // Jump
+    if(inputs.keys.has('w') && p1.userData.grounded && p1.userData.landingLag <= 0){ 
+      p1.userData.vy = JUMP_VELOCITY; 
+      p1.userData.grounded = false; 
+    }
+    
+    // Fast fall
+    if(inputs.keys.has('s') && !p1.userData.grounded) {
+      fastFall(p1);
+    }
+    
+    // Attacks
+    if(inputs.keys.has(' ')) beginAttack(p1, 'NEUTRAL'); // Neutral attack
+    if(inputs.keys.has('Shift')) beginAttack(p1, 'SIDE'); // Side attack
+    if(inputs.keys.has('Control')) beginAttack(p1, 'UP'); // Up attack
+    if(inputs.keys.has('Alt')) beginAttack(p1, 'DOWN'); // Down attack
+    
+    // Shield
+    if(inputs.keys.has('q')) {
+      toggleShield(p1, true);
+    } else if (p1.userData.shielding) {
+      toggleShield(p1, false);
+    }
+    
+    // Roll
+    if(inputs.keys.has('e') && p1.userData.grounded) {
+      beginRoll(p1, p1.userData.facing);
+    }
+  }
+  
+  // Player 2 controls (Arrow Keys + Enter/R/T/Y + F/G)
+  if (p2.userData.hitstun <= 0 && !p2.userData.rolling) {
+    // Movement
+    if(inputs.keys.has('ArrowLeft')){ p2.userData.vx -= HORIZ_ACCEL; p2.userData.facing = -1; }
+    if(inputs.keys.has('ArrowRight')){ p2.userData.vx += HORIZ_ACCEL; p2.userData.facing = 1; }
+    
+    // Jump
+    if(inputs.keys.has('ArrowUp') && p2.userData.grounded && p2.userData.landingLag <= 0){ 
+      p2.userData.vy = JUMP_VELOCITY; 
+      p2.userData.grounded = false; 
+    }
+    
+    // Fast fall
+    if(inputs.keys.has('ArrowDown') && !p2.userData.grounded) {
+      fastFall(p2);
+    }
+    
+    // Attacks
+    if(inputs.keys.has('Enter')) beginAttack(p2, 'NEUTRAL'); // Neutral attack
+    if(inputs.keys.has('KeyR')) beginAttack(p2, 'SIDE'); // Side attack (R key)
+    if(inputs.keys.has('KeyT')) beginAttack(p2, 'UP'); // Up attack (T key)
+    if(inputs.keys.has('KeyY')) beginAttack(p2, 'DOWN'); // Down attack (Y key)
+    
+    // Shield
+    if(inputs.keys.has('KeyF')) {
+      toggleShield(p2, true);
+    } else if (p2.userData.shielding) {
+      toggleShield(p2, false);
+    }
+    
+    // Roll
+    if(inputs.keys.has('KeyG') && p2.userData.grounded) {
+      beginRoll(p2, p2.userData.facing);
+    }
+  }
+  
+  // Apply speed limits
   p1.userData.vx = clamp(p1.userData.vx, -HORIZ_SPEED, HORIZ_SPEED);
   p2.userData.vx = clamp(p2.userData.vx, -HORIZ_SPEED, HORIZ_SPEED);
-  updateAttackAndDamage(p1,p2);
-  updateAttackAndDamage(p2,p1);
-  for (const n of [p1,p2]){ if(n.userData.hitstun>0) n.userData.hitstun--; n.scale.x += (1 - n.scale.x)*0.15; n.scale.y += (1.15 - n.scale.y)*0.15; n.scale.z += (1 - n.scale.z)*0.15; const core=n.userData.core; if(core) core.material.emissiveIntensity += (0.4 - core.material.emissiveIntensity)*0.1; }
-  applyPhysics(p1); applyPhysics(p2);
-  if (state.p1Health<=0 || state.p2Health<=0) endGame();
+  
+  // Update attacks and damage
+  updateAttackAndDamage(p1, p2);
+  updateAttackAndDamage(p2, p1);
+  
+  // Update entity states
+  for (const entity of [p1, p2]){ 
+    if(entity.userData.hitstun > 0) entity.userData.hitstun--; 
+    
+    // Update combo timer
+    if (entity.userData.combo) {
+      entity.userData.combo.timer++;
+    }
+    
+    // Update perfect shield
+    if (entity.userData.perfectShield) {
+      entity.userData.perfectShieldFrames--;
+      if (entity.userData.perfectShieldFrames <= 0) {
+        entity.userData.perfectShield = false;
+        if (entity.userData.core) {
+          entity.userData.core.material.emissiveIntensity = 0.6;
+          entity.userData.core.material.color.setHex(entity.userData.originalColor || 0xffffff);
+        }
+      }
+    }
+    
+    // Add movement options
+    addMovementOptions(entity);
+    
+    // Reset scale and effects
+    entity.scale.x += (entity.userData.originalScale.x - entity.scale.x) * 0.15; 
+    entity.scale.y += (entity.userData.originalScale.y - entity.scale.y) * 0.15; 
+    entity.scale.z += (entity.userData.originalScale.z - entity.scale.z) * 0.15; 
+    
+    const core = entity.userData.core; 
+    if(core) core.material.emissiveIntensity += (0.6 - core.material.emissiveIntensity) * 0.1; 
+  }
+  
+  // Update status indicators
+  updateStatusIndicators();
+
+  // Apply physics
+  applyPhysics(p1); 
+  applyPhysics(p2);
+  
+  // Check for game end - ONLY if game is running and health is actually 0
+  if (state.gameRunning && (state.p1Health <= 0 || state.p2Health <= 0)) {
+    console.log('Health check triggered:', state.p1Health, state.p2Health);
+    
+    // Final safety check
+    if (state.p1Health <= 0 || state.p2Health <= 0) {
+      console.log('Game end condition met, calling endGame');
+      endGame();
+    }
+  }
 }
 
 function cleanupGameEntities() {
+  // Stop the game
+  state.gameRunning = false;
+  
+  // Clear timer
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = 0;
+  }
+  
+  // Remove entities from scene
   for (const key of ['p1', 'p2']) {
     const node = state.entities[key];
-    if (node) { scene.remove(node); state.entities[key] = null; }
+    if (node) { 
+      scene.remove(node); 
+      state.entities[key] = null; 
+    }
   }
+  
+  // Hide all result elements
+  hudResult.classList.add('hidden');
+  postMatch.classList.add('hidden');
 }
 
 function rematch() {
@@ -1053,20 +1514,14 @@ function rematch() {
 
 function backToSelect() {
   cleanupGameEntities();
-  if (state.timerId) { clearInterval(state.timerId); state.timerId = 0; }
   state.scene = 'select';
-  postMatch.classList.add('hidden');
-  hudResult.classList.add('hidden');
   showScreen('select');
   refreshSelectPreview();
 }
 
 function backToMenu() {
   cleanupGameEntities();
-  if (state.timerId) { clearInterval(state.timerId); state.timerId = 0; }
   state.scene = 'menu';
-  postMatch.classList.add('hidden');
-  hudResult.classList.add('hidden');
   showScreen('menu');
 }
 
@@ -1278,38 +1733,149 @@ function animateIdle(node, time) {
 let last = performance.now();
 function tick(now) {
   requestAnimationFrame(tick);
-  const dtMs = now - last; last = now; const dt = Math.min(3.0, dtMs / 16.6667);
+  const dtMs = now - last; 
+  last = now; 
+  const dt = Math.min(3.0, dtMs / 16.6667);
 
   controls.update();
 
-  // Animate background bubbles
-  backgroundBubbles.children.forEach(bubble => {
-    bubble.position.y += bubble.userData.speed;
-    bubble.rotation.y += bubble.userData.rotationSpeed;
-    bubble.rotation.z += bubble.userData.rotationSpeed * 0.5;
-    
-    // Reset bubble position when it goes too high
-    if (bubble.position.y > 15) {
-      bubble.position.y = bubble.userData.originalY - 20;
-    }
-    
-    // Gentle pulsing effect
-    const pulse = Math.sin(now * 0.001 + bubble.position.x) * 0.1;
-    bubble.scale.setScalar(1 + pulse);
-  });
-
   // Update selection previews idle motion when in select scene
   if (state.scene === 'select') {
-    animateIdle(preview.p1, now);
-    animateIdle(preview.p2, now);
+    if (preview.p1) animateIdle(preview.p1, now);
+    if (preview.p2) animateIdle(preview.p2, now);
   }
 
-  // Update game
+  // Update game entities idle animation when in game scene
+  if (state.scene === 'game' && state.gameRunning) {
+    if (state.entities.p1) animateIdle(state.entities.p1, now);
+    if (state.entities.p2) animateIdle(state.entities.p2, now);
+  }
+
+  // Update game logic
   updateGame(dt);
 
   renderer.render(scene, camera);
 }
-showScreen('menu');
+
+// Start the animation loop immediately
 tick(performance.now());
+
+// Attack system - Smash Bros style
+const ATTACK_TYPES = {
+  NEUTRAL: { 
+    name: 'Neutral', 
+    damage: 6, 
+    knockback: 0.6, 
+    startup: 3, 
+    active: 4, 
+    endlag: 8, 
+    range: 1.0,
+    description: 'Quick jab, low knockback'
+  },
+  SIDE: { 
+    name: 'Side', 
+    damage: 12, 
+    knockback: 1.2, 
+    startup: 6, 
+    active: 8, 
+    endlag: 16, 
+    range: 1.6,
+    description: 'Forward strike, good knockback'
+  },
+  UP: { 
+    name: 'Up', 
+    damage: 10, 
+    knockback: 1.0, 
+    startup: 5, 
+    active: 7, 
+    endlag: 14, 
+    range: 1.4,
+    description: 'Upward strike, vertical knockback'
+  },
+  DOWN: { 
+    name: 'Down', 
+    damage: 16, 
+    knockback: 1.5, 
+    startup: 10, 
+    active: 12, 
+    endlag: 24, 
+    range: 1.2,
+    description: 'Powerful downward strike, high knockback'
+  }
+};
+
+// Gameplay constants - Smash Bros style
+
+// Enhanced fighting mechanics (constants defined at top of file)
+
+// Combo system
+function addCombo(entity, attackType) {
+  if (!entity.userData.combo) entity.userData.combo = { count: 0, lastAttack: null, timer: 0 };
+  
+  if (entity.userData.combo.lastAttack === attackType && entity.userData.combo.timer < COMBO_WINDOW) {
+    entity.userData.combo.count++;
+    entity.userData.combo.timer = 0;
+  } else {
+    entity.userData.combo.count = 1;
+    entity.userData.combo.timer = 0;
+  }
+  
+  entity.userData.combo.lastAttack = attackType;
+}
+
+// Perfect shield system
+function checkPerfectShield(entity) {
+  if (entity.userData.shielding && entity.userData.shieldFrames >= SHIELD_FRAMES - PERFECT_SHIELD_FRAMES) {
+    entity.userData.perfectShield = true;
+    entity.userData.perfectShieldFrames = 5;
+    // Visual feedback for perfect shield
+    if (entity.userData.core) {
+      entity.userData.core.material.emissiveIntensity = 1.2;
+      entity.userData.core.material.color.setHex(0x00ffff);
+    }
+  }
+}
+
+// Air attack system
+function isAirAttack(entity) {
+  return !entity.userData.grounded;
+}
+
+// Enhanced movement options
+function addMovementOptions(entity) {
+  // Dash attack (running + attack)
+  if (Math.abs(entity.userData.vx) > HORIZ_SPEED * 0.8 && entity.userData.grounded) {
+    entity.userData.dashing = true;
+  } else {
+    entity.userData.dashing = false;
+  }
+  
+  // Crouch (hold down while grounded)
+  if (entity.userData.grounded && entity.userData.vy < 0) {
+    entity.userData.crouching = true;
+    entity.scale.y = entity.userData.originalScale.y * 0.8;
+  } else {
+    entity.userData.crouching = false;
+  }
+}
+
+// Initialize the app
+function initializeApp() {
+  // CRITICAL: Ensure no result elements are visible on startup
+  const allResults = document.querySelectorAll('.result, .overlay');
+  allResults.forEach(el => {
+    el.classList.add('hidden');
+  });
+  
+  // Ensure we start on menu screen
+  state.scene = 'menu';
+  state.gameRunning = false;
+  
+  // Show menu screen
+  showScreen('menu');
+}
+
+// Start the app when page loads
+document.addEventListener('DOMContentLoaded', initializeApp);
 
 

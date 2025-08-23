@@ -29,7 +29,24 @@
     <div id="howto-modal" class="modal hidden">
         <div class="modal-content">
             <h2>How to Play</h2>
-            <p>Pick your Hashima, then battle! Player 1 uses WASD and Space. Player 2 uses Arrow Keys and Enter.</p>
+            <p>Pick your Hashima, then battle! Use Smash Bros-style controls:</p>
+            
+            <div class="controls-scheme">
+                <div class="player-controls">
+                    <h3>Player 1 (WASD)</h3>
+                    <p><strong>Movement:</strong> A/D to move, W to jump</p>
+                    <p><strong>Attacks:</strong> Space (Neutral), Shift (Side), Ctrl (Up), Alt (Down)</p>
+                    <p><strong>Defense:</strong> Q to shield, E to roll, S to fast fall</p>
+                </div>
+                
+                <div class="player-controls">
+                    <h3>Player 2 (Arrow Keys)</h3>
+                    <p><strong>Movement:</strong> ←/→ to move, ↑ to jump</p>
+                    <p><strong>Attacks:</strong> Enter (Neutral), R (Side), T (Up), Y (Down)</p>
+                    <p><strong>Defense:</strong> F to shield, G to roll, ↓ to fast fall</p>
+                </div>
+            </div>
+            
             <button id="btn-howto-close" class="btn">Close</button>
         </div>
     </div>
@@ -85,14 +102,17 @@
         <div class="bar">
             <div class="bar-bg"></div>
             <div id="hud-p1" class="bar-fg"></div>
+            <div id="status-p1" class="status-indicator"></div>
         </div>
         <div id="hud-timer" class="timer">60</div>
         <div class="bar">
             <div class="bar-bg"></div>
             <div id="hud-p2" class="bar-fg"></div>
+            <div id="status-p2" class="status-indicator"></div>
         </div>
     </div>
-    <div id="hud-result" class="result hidden">Tie</div>
+ 
+    <div id="hud-result" class="result hidden">👊</div>
     <div id="post-match" class="overlay hidden">
         <div class="panel">
             <div class="title">Match Over</div>
