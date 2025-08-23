@@ -34,9 +34,18 @@ const btnStartGame = document.getElementById('btn-start-game');
 
 // 3D Renderer
 const root = document.getElementById('three-root');
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ 
+  antialias: true, 
+  alpha: true,
+  powerPreference: "high-performance"
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+renderer.outputEncoding = THREE.sRGBEncoding;
 root.appendChild(renderer.domElement);
 
 // Scene graph
@@ -50,21 +59,75 @@ controls.enablePan = false;
 controls.target.set(0, 1.2, 0);
 
 // Lighting and ground
-const hemi = new THREE.HemisphereLight(0xffffff, 0x141414, 1.0);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x141414, 1.2);
 scene.add(hemi);
-const dir = new THREE.DirectionalLight(0xffffff, 1.1);
-dir.position.set(4, 6, 4);
+const dir = new THREE.DirectionalLight(0xffffff, 1.3);
+dir.position.set(4, 8, 4);
 dir.castShadow = true;
+dir.shadow.mapSize.width = 2048;
+dir.shadow.mapSize.height = 2048;
+dir.shadow.camera.near = 0.5;
+dir.shadow.camera.far = 50;
+dir.shadow.camera.left = -10;
+dir.shadow.camera.right = 10;
+dir.shadow.camera.top = 10;
+dir.shadow.camera.bottom = -10;
 scene.add(dir);
+
+// Add ambient light for better bubble visibility
+const ambient = new THREE.AmbientLight(0x404040, 0.6);
+scene.add(ambient);
+
+// Add point lights for dramatic bubble effects
+const pointLight1 = new THREE.PointLight(0x00aaff, 0.8, 15);
+pointLight1.position.set(-3, 3, 2);
+scene.add(pointLight1);
+
+const pointLight2 = new THREE.PointLight(0xff00aa, 0.6, 12);
+pointLight2.position.set(3, 2, -2);
+scene.add(pointLight2);
 
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 1 })
+  new THREE.MeshStandardMaterial({ 
+    color: 0x0a0a0a, 
+    roughness: 1,
+    metalness: 0.1
+  })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1.25;
 ground.receiveShadow = true;
 scene.add(ground);
+
+// Add subtle fog for depth
+scene.fog = new THREE.Fog(0x000000, 15, 50);
+
+// Add floating background bubbles for atmosphere
+const backgroundBubbles = new THREE.Group();
+for (let i = 0; i < 20; i++) {
+  const bubbleSize = 0.1 + Math.random() * 0.3;
+  const bubbleMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(Math.random(), 0.3, 0.6),
+    transparent: true,
+    opacity: 0.3,
+    metalness: 0.8,
+    roughness: 0.1
+  });
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(bubbleSize, 16, 16), bubbleMat);
+  bubble.position.set(
+    (Math.random() - 0.5) * 40,
+    Math.random() * 20 - 5,
+    (Math.random() - 0.5) * 40
+  );
+  bubble.userData = { 
+    originalY: bubble.position.y,
+    speed: 0.01 + Math.random() * 0.02,
+    rotationSpeed: (Math.random() - 0.5) * 0.02
+  };
+  backgroundBubbles.add(bubble);
+}
+scene.add(backgroundBubbles);
 
 // Gameplay constants
 const ARENA_HALF_WIDTH = 4.0;
@@ -86,7 +149,7 @@ const KNOCKBACK_X = 0.25;
 const KNOCKBACK_Y = 0.18;
 
 // Character factory (richer bubble Hashimas)
-const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa];
+const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa, 0xff6b35, 0x8e44ad, 0x16a085, 0xe74c3c];
 
 function seededRandom(seed) {
   let s = (seed >>> 0) || 1;
@@ -100,75 +163,290 @@ function createBubbleHashima(color, seed = 1) {
   const rand = seededRandom(seed);
   const group = new THREE.Group();
 
-  // Body: slightly stretched sphere for an egg-like silhouette
-  const bodyMat = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.45 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 48, 48), bodyMat);
-  body.scale.set(1, 1.15, 1);
+  // Enhanced body: more humanoid proportions with better materials
+  const bodyMat = new THREE.MeshStandardMaterial({ 
+    color, 
+    metalness: 0.3, 
+    roughness: 0.4,
+    transparent: true,
+    opacity: 0.9
+  });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 64, 64), bodyMat);
+  body.scale.set(1, 1.2, 0.9); // More human-like proportions
   body.castShadow = true;
+  body.receiveShadow = true;
   group.add(body);
 
-  // Inner emissive core
-  const coreColor = new THREE.Color(color).offsetHSL(0, 0, 0.2);
-  const coreMat = new THREE.MeshStandardMaterial({ color: coreColor.getHex(), emissive: coreColor.getHex(), emissiveIntensity: 0.4, metalness: 0.1, roughness: 0.8 });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), coreMat);
+  // Enhanced inner core with better lighting effects
+  const coreColor = new THREE.Color(color).offsetHSL(0, 0, 0.15);
+  const coreMat = new THREE.MeshStandardMaterial({ 
+    color: coreColor.getHex(), 
+    emissive: coreColor.getHex(), 
+    emissiveIntensity: 0.6, 
+    metalness: 0.2, 
+    roughness: 0.7,
+    transparent: true,
+    opacity: 0.8
+  });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.65, 48, 48), coreMat);
   core.castShadow = false;
   group.add(core);
 
-  // Eyes and pupils
-  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-  const eyeDarkMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-  const eyeWhiteGeo = new THREE.SphereGeometry(0.16, 16, 16);
-  const eyeDarkGeo = new THREE.SphereGeometry(0.07, 16, 16);
+  // Enhanced eyes with more realistic structure
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ 
+    color: 0xffffff, 
+    roughness: 0.3,
+    metalness: 0.1
+  });
+  const eyeDarkMat = new THREE.MeshStandardMaterial({ 
+    color: 0x111111,
+    roughness: 0.1,
+    metalness: 0.2
+  });
+  const eyeHighlightMat = new THREE.MeshStandardMaterial({ 
+    color: 0xffffff, 
+    emissive: 0xffffff, 
+    emissiveIntensity: 0.3,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const eyeWhiteGeo = new THREE.SphereGeometry(0.18, 24, 24);
+  const eyeDarkGeo = new THREE.SphereGeometry(0.08, 20, 20);
+  const eyeHighlightGeo = new THREE.SphereGeometry(0.04, 16, 16);
 
-  const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eL.position.set(-0.26, 0.12, 0.76);
-  const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eLi.position.set(-0.26, 0.10, 0.9);
-  const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); eR.position.set(0.26, 0.12, 0.76);
-  const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); eRi.position.set(0.26, 0.10, 0.9);
-  for (const m of [eL, eLi, eR, eRi]) { m.castShadow = true; group.add(m); }
+  // Left eye
+  const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
+  eL.position.set(-0.28, 0.15, 0.78);
+  const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
+  eLi.position.set(-0.28, 0.12, 0.92);
+  const eLh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
+  eLh.position.set(-0.32, 0.18, 0.82);
+  
+  // Right eye
+  const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
+  eR.position.set(0.28, 0.15, 0.78);
+  const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
+  eRi.position.set(0.28, 0.12, 0.92);
+  const eRh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
+  eRh.position.set(0.32, 0.18, 0.82);
+  
+  for (const m of [eL, eLi, eLh, eR, eRi, eRh]) { 
+    m.castShadow = true; 
+    group.add(m); 
+  }
 
-  // Mouth (tiny ring)
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 8, 24), new THREE.MeshStandardMaterial({ color: 0x282828, roughness: 0.3 }));
-  mouth.position.set(0, -0.05, 0.85);
+  // Enhanced mouth with more expression
+  const mouthMat = new THREE.MeshStandardMaterial({ 
+    color: 0x2a2a2a, 
+    roughness: 0.4,
+    metalness: 0.1
+  });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 12, 32), mouthMat);
+  mouth.position.set(0, -0.08, 0.88);
   group.add(mouth);
 
-  // Optional stripe ring
+  // Nose (small bubble)
+  const noseMat = new THREE.MeshStandardMaterial({ 
+    color: new THREE.Color(color).offsetHSL(0, -0.1, 0.1).getHex(),
+    transparent: true,
+    opacity: 0.7
+  });
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), noseMat);
+  nose.position.set(0, 0.05, 0.9);
+  group.add(nose);
+
+  // Enhanced stripe patterns with more variety
   let stripe = null;
-  if (rand() > 0.4) {
-    const stripeColor = new THREE.Color(color).offsetHSL(0.06, 0.1, 0.15);
-    stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.03, 12, 64), new THREE.MeshStandardMaterial({ color: stripeColor.getHex(), metalness: 0.25, roughness: 0.35 }));
-    stripe.rotation.x = Math.PI * (0.15 + rand() * 0.3);
-    stripe.rotation.y = Math.PI * (rand() * 2);
+  if (rand() > 0.3) {
+    const stripeColor = new THREE.Color(color).offsetHSL(0.08, 0.15, 0.2);
+    const stripeMat = new THREE.MeshStandardMaterial({ 
+      color: stripeColor.getHex(), 
+      metalness: 0.3, 
+      roughness: 0.3,
+      emissive: stripeColor.getHex(),
+      emissiveIntensity: 0.1
+    });
+    
+    if (rand() > 0.5) {
+      // Horizontal stripe
+      stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.04, 16, 64), stripeMat);
+      stripe.rotation.x = Math.PI * (0.1 + rand() * 0.4);
+    } else {
+      // Vertical stripe
+      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 16), stripeMat);
+      stripe.rotation.z = Math.PI / 2;
+      stripe.rotation.y = Math.PI * rand();
+    }
     group.add(stripe);
   }
 
-  // Optional halo or horns
-  let halo = null; let horns = [];
+  // Enhanced accessories with more variety
+  let halo = null; 
+  let horns = [];
+  let antennae = [];
+  
   if (rand() > 0.6) {
-    halo = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.02, 8, 48), new THREE.MeshStandardMaterial({ color: 0xffee88, emissive: 0xffdd66, emissiveIntensity: 0.5 }));
-    halo.position.y = 0.75;
+    // Enhanced halo with better materials
+    const haloMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffee88, 
+      emissive: 0xffdd66, 
+      emissiveIntensity: 0.7,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 12, 64), haloMat);
+    halo.position.y = 0.8;
     halo.rotation.x = Math.PI / 2;
     group.add(halo);
-  } else if (rand() > 0.5) {
-    const hornMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
-    const hornGeo = new THREE.ConeGeometry(0.12, 0.25, 12);
+  } else if (rand() > 0.4) {
+    // Enhanced horns
+    const hornMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff, 
+      roughness: 0.15, 
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.9
+    });
+    const hornGeo = new THREE.ConeGeometry(0.14, 0.3, 16);
     const h1 = new THREE.Mesh(hornGeo, hornMat);
     const h2 = new THREE.Mesh(hornGeo, hornMat);
-    h1.position.set(-0.25, 0.55, 0.35); h1.rotation.z = Math.PI * -0.1; h1.rotation.x = Math.PI * -0.2;
-    h2.position.set(0.25, 0.55, 0.35);  h2.rotation.z = Math.PI * 0.1;  h2.rotation.x = Math.PI * -0.2;
-    for (const h of [h1, h2]) { h.castShadow = true; group.add(h); horns.push(h); }
+    h1.position.set(-0.28, 0.6, 0.4); 
+    h1.rotation.z = Math.PI * -0.12; 
+    h1.rotation.x = Math.PI * -0.25;
+    h2.position.set(0.28, 0.6, 0.4);  
+    h2.rotation.z = Math.PI * 0.12;  
+    h2.rotation.x = Math.PI * -0.25;
+    for (const h of [h1, h2]) { 
+      h.castShadow = true; 
+      group.add(h); 
+      horns.push(h); 
+    }
+  } else if (rand() > 0.3) {
+    // Antennae
+    const antennaMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
+      metalness: 0.6,
+      roughness: 0.2
+    });
+    const antennaGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
+    const a1 = new THREE.Mesh(antennaGeo, antennaMat);
+    const a2 = new THREE.Mesh(antennaGeo, antennaMat);
+    a1.position.set(-0.2, 0.7, 0.3);
+    a1.rotation.z = Math.PI * -0.15;
+    a2.position.set(0.2, 0.7, 0.3);
+    a2.rotation.z = Math.PI * 0.15;
+    
+    // Antenna tips
+    const tipMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffff00, 
+      emissive: 0xffff00, 
+      emissiveIntensity: 0.4
+    });
+    const tip1 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), tipMat);
+    const tip2 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), tipMat);
+    tip1.position.set(-0.25, 0.9, 0.25);
+    tip2.position.set(0.25, 0.9, 0.25);
+    
+    for (const item of [a1, a2, tip1, tip2]) {
+      item.castShadow = true;
+      group.add(item);
+    }
+    antennae = [a1, a2, tip1, tip2];
   }
 
-  // Floating appendages (arms)
+  // Enhanced arms with more articulation
   const arms = new THREE.Group();
-  const armMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).offsetHSL(0, -0.05, 0.05).getHex(), roughness: 0.5 });
+  const armMat = new THREE.MeshStandardMaterial({ 
+    color: new THREE.Color(color).offsetHSL(0, -0.08, 0.08).getHex(), 
+    roughness: 0.4,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.8
+  });
+  
   for (let i = 0; i < 2; i++) {
-    const s = 0.18 + rand() * 0.05;
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 16, 16), armMat);
-    hand.position.set(i === 0 ? -1.2 : 1.2, 0.05, 0);
+    const side = i === 0 ? -1 : 1;
+    const s = 0.2 + rand() * 0.08;
+    
+    // Upper arm
+    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.4, 12), armMat);
+    upperArm.position.set(side * 0.8, -0.1, 0.1);
+    upperArm.rotation.z = side * 0.3;
+    upperArm.castShadow = true;
+    arms.add(upperArm);
+    
+    // Lower arm
+    const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.35, 12), armMat);
+    lowerArm.position.set(side * 1.1, -0.3, 0.15);
+    lowerArm.rotation.z = side * 0.6;
+    lowerArm.castShadow = true;
+    arms.add(lowerArm);
+    
+    // Hand
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 20, 20), armMat);
+    hand.position.set(side * 1.3, -0.45, 0.2);
     hand.castShadow = true;
     arms.add(hand);
   }
   group.add(arms);
+
+  // Legs for more human-like appearance
+  const legs = new THREE.Group();
+  const legMat = new THREE.MeshStandardMaterial({ 
+    color: new THREE.Color(color).offsetHSL(0, -0.1, 0.05).getHex(), 
+    roughness: 0.5,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  for (let i = 0; i < 2; i++) {
+    const side = i === 0 ? -1 : 1;
+    
+    // Upper leg
+    const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.5, 12), legMat);
+    upperLeg.position.set(side * 0.3, -0.8, 0);
+    upperLeg.castShadow = true;
+    legs.add(upperLeg);
+    
+    // Lower leg
+    const lowerLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.4, 12), legMat);
+    lowerLeg.position.set(side * 0.3, -1.25, 0);
+    lowerLeg.castShadow = true;
+    legs.add(lowerLeg);
+    
+    // Foot
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), legMat);
+    foot.position.set(side * 0.3, -1.45, 0.1);
+    foot.scale.set(1, 0.6, 1.2);
+    foot.castShadow = true;
+    legs.add(foot);
+  }
+  group.add(legs);
+
+  // Floating particles around the Hashima
+  const particles = new THREE.Group();
+  const particleMat = new THREE.MeshStandardMaterial({ 
+    color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
+    emissive: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
+    emissiveIntensity: 0.6,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  for (let i = 0; i < 6; i++) {
+    const particle = new THREE.Mesh(new THREE.SphereGeometry(0.03 + rand() * 0.02, 8, 8), particleMat);
+    const angle = (i / 6) * Math.PI * 2;
+    const radius = 1.2 + rand() * 0.3;
+    particle.position.set(
+      Math.cos(angle) * radius,
+      -0.5 + rand() * 0.5,
+      Math.sin(angle) * radius
+    );
+    particles.add(particle);
+  }
+  group.add(particles);
 
   // Store anim parts
   group.userData = {
@@ -179,7 +457,11 @@ function createBubbleHashima(color, seed = 1) {
     halo,
     stripe,
     horns,
-    arms
+    antennae,
+    arms,
+    legs,
+    particles,
+    originalScale: new THREE.Vector3(1, 1.2, 0.9)
   };
   return group;
 }
@@ -337,8 +619,40 @@ function updateAttackAndDamage(attacker, defender){
   if (atk.cooldown>0){ atk.cooldown--; return; }
   if (atk.frame>0){
     atk.frame++;
-    const core = attacker.userData.core; if(core) core.material.emissiveIntensity = 0.4 + Math.sin(atk.frame*0.4)*0.25;
-    attacker.scale.set(1 + Math.sin(atk.frame*0.3)*0.05, 1 - Math.sin(atk.frame*0.3)*0.06, 1 + Math.sin(atk.frame*0.3)*0.05);
+    const core = attacker.userData.core; if(core) core.material.emissiveIntensity = 0.6 + Math.sin(atk.frame*0.4)*0.4;
+    
+    // Enhanced attack scaling with breathing effect
+    const attackScale = 1 + Math.sin(atk.frame*0.3)*0.08;
+    const breathScale = Math.sin(atk.frame*0.2)*0.03;
+    attacker.scale.set(
+      attacker.userData.originalScale.x + attackScale + breathScale, 
+      attacker.userData.originalScale.y + attackScale*0.8 + breathScale*0.5, 
+      attacker.userData.originalScale.z + attackScale + breathScale
+    );
+    
+    // Animate particles during attack
+    if (attacker.userData.particles) {
+      const particleChildren = attacker.userData.particles.children;
+      for (let i = 0; i < particleChildren.length; i++) {
+        const particle = particleChildren[i];
+        const pulse = Math.sin(atk.frame * 0.5 + i) * 0.5;
+        particle.material.emissiveIntensity = 0.6 + pulse * 0.4;
+        particle.scale.setScalar(1 + pulse * 0.2);
+      }
+    }
+    
+    // Animate arms during attack
+    if (attacker.userData.arms && atk.frame >= ATTACK_ACTIVE_START && atk.frame <= ATTACK_ACTIVE_END) {
+      const armChildren = attacker.userData.arms.children;
+      if (armChildren.length >= 6) {
+        // Attack pose - arms forward
+        armChildren[0].rotation.z = -0.1; // Left upper arm
+        armChildren[1].rotation.z = -0.3; // Left lower arm
+        armChildren[3].rotation.z = 0.1;  // Right upper arm
+        armChildren[4].rotation.z = 0.3;  // Right lower arm
+      }
+    }
+    
     if (atk.frame===ATTACK_ACTIVE_START){ attacker.userData.facing = flipTowards(attacker, defender); }
     if (atk.frame>=ATTACK_ACTIVE_START && atk.frame<=ATTACK_ACTIVE_END){
       const dist = attacker.position.distanceTo(defender.position);
@@ -350,10 +664,46 @@ function updateAttackAndDamage(attacker, defender){
         defender.userData.vx += dir*KNOCKBACK_X;
         defender.userData.vy += KNOCKBACK_Y;
         const dcore = defender.userData.core; if(dcore) dcore.material.emissiveIntensity=1.0;
-        defender.scale.set(0.92, 1.08, 0.92);
+        
+        // Enhanced hit effect
+        defender.scale.set(0.9, 1.1, 0.9);
+        
+        // Flash particles on hit
+        if (defender.userData.particles) {
+          const particleChildren = defender.userData.particles.children;
+          for (const particle of particleChildren) {
+            particle.material.emissiveIntensity = 1.0;
+            particle.material.color.setHex(0xffffff);
+          }
+        }
       }
     }
-    if (atk.frame>ATTACK_DURATION_FRAMES){ atk.frame=0; atk.cooldown=ATTACK_COOLDOWN_FRAMES; attacker.scale.set(1,1.15,1); const core=attacker.userData.core; if(core) core.material.emissiveIntensity=0.4; }
+    if (atk.frame>ATTACK_DURATION_FRAMES){ 
+      atk.frame=0; 
+      atk.cooldown=ATTACK_COOLDOWN_FRAMES; 
+      attacker.scale.copy(attacker.userData.originalScale); 
+      const core=attacker.userData.core; if(core) core.material.emissiveIntensity=0.6; 
+      
+      // Reset particles
+      if (attacker.userData.particles) {
+        const particleChildren = attacker.userData.particles.children;
+        for (const particle of particleChildren) {
+          particle.material.emissiveIntensity = 0.6;
+          particle.scale.setScalar(1);
+        }
+      }
+      
+      // Reset arms to idle
+      if (attacker.userData.arms) {
+        const armChildren = attacker.userData.arms.children;
+        if (armChildren.length >= 6) {
+          armChildren[0].rotation.z = -0.3; // Left upper arm
+          armChildren[1].rotation.z = -0.6; // Left lower arm
+          armChildren[3].rotation.z = 0.3;  // Right upper arm
+          armChildren[4].rotation.z = 0.6;  // Right lower arm
+        }
+      }
+    }
   }
 }
 function applyPhysics(e){
@@ -436,9 +786,9 @@ function animateIdle(node, time) {
   // Pupils follow opponent/controls subtly
   const pupils = node.userData.pupils || [];
   for (const p of pupils) {
-    p.position.x = Math.sign(Math.sin(t * 0.7)) * 0.26;
-    p.position.y = 0.10 + Math.sin(t * 1.3) * 0.005;
-    p.position.z = 0.9 + Math.cos(t * 1.1) * 0.005;
+    p.position.x = Math.sign(Math.sin(t * 0.7)) * 0.28;
+    p.position.y = 0.12 + Math.sin(t * 1.3) * 0.005;
+    p.position.z = 0.92 + Math.cos(t * 1.1) * 0.005;
   }
 
   // Blink by scaling eyes on Y
@@ -455,19 +805,99 @@ function animateIdle(node, time) {
     }
   }
 
-  // Arms float
+  // Enhanced arms with more natural movement
   if (node.userData.arms) {
     const spread = 1.2 + Math.sin(t * 1.5) * 0.1;
     const bob = Math.sin(t * 2.1) * 0.05;
-    node.userData.arms.children[0].position.set(-spread, 0.05 + bob, 0);
-    node.userData.arms.children[1].position.set(spread, 0.05 - bob, 0);
+    const swing = Math.sin(t * 1.8) * 0.15;
+    
+    // Animate each arm segment
+    const armChildren = node.userData.arms.children;
+    if (armChildren.length >= 6) { // 2 arms × 3 segments each
+      // Left arm
+      armChildren[0].rotation.z = -0.3 + swing * 0.1; // Upper arm
+      armChildren[1].rotation.z = -0.6 + swing * 0.15; // Lower arm
+      armChildren[2].position.set(-spread, 0.05 + bob, 0.2); // Hand
+      
+      // Right arm
+      armChildren[3].rotation.z = 0.3 - swing * 0.1; // Upper arm
+      armChildren[4].rotation.z = 0.6 - swing * 0.15; // Lower arm
+      armChildren[5].position.set(spread, 0.05 - bob, 0.2); // Hand
+    }
+  }
+
+  // Animate legs for walking-like movement
+  if (node.userData.legs) {
+    const legChildren = node.userData.legs.children;
+    if (legChildren.length >= 6) { // 2 legs × 3 segments each
+      const walkCycle = Math.sin(t * 3) * 0.1;
+      const bounce = Math.sin(t * 2) * 0.05;
+      
+      // Left leg
+      legChildren[0].rotation.x = walkCycle; // Upper leg
+      legChildren[1].rotation.x = walkCycle * 0.5; // Lower leg
+      legChildren[2].position.y = -1.45 + bounce; // Foot
+      
+      // Right leg (opposite phase)
+      legChildren[3].rotation.x = -walkCycle; // Upper leg
+      legChildren[4].rotation.x = -walkCycle * 0.5; // Lower leg
+      legChildren[5].position.y = -1.45 - bounce; // Foot
+    }
+  }
+
+  // Animate floating particles
+  if (node.userData.particles) {
+    const particleChildren = node.userData.particles.children;
+    for (let i = 0; i < particleChildren.length; i++) {
+      const particle = particleChildren[i];
+      const angle = (i / particleChildren.length) * Math.PI * 2;
+      const radius = 1.2 + Math.sin(t * 0.5 + i) * 0.2;
+      const height = -0.5 + Math.sin(t * 1.2 + i * 0.5) * 0.3;
+      
+      particle.position.set(
+        Math.cos(angle + t * 0.3) * radius,
+        height,
+        Math.sin(angle + t * 0.3) * radius
+      );
+      
+      // Gentle rotation
+      particle.rotation.y += 0.02;
+      particle.rotation.z += 0.01;
+    }
   }
 
   // Halo gentle spin or horn subtle tilt
-  if (node.userData.halo) node.userData.halo.rotation.z += 0.01;
-  if (node.userData.horns && node.userData.horns.length) {
-    for (const h of node.userData.horns) h.rotation.y += 0.002;
+  if (node.userData.halo) {
+    node.userData.halo.rotation.z += 0.01;
+    node.userData.halo.position.y = 0.8 + Math.sin(t * 1.5) * 0.02;
   }
+  
+  if (node.userData.horns && node.userData.horns.length) {
+    for (const h of node.userData.horns) {
+      h.rotation.y += 0.002;
+      h.rotation.z += Math.sin(t * 0.8) * 0.001;
+    }
+  }
+
+  // Animate antennae if present
+  if (node.userData.antennae && node.userData.antennae.length >= 4) {
+    const antennae = node.userData.antennae;
+    const wiggle = Math.sin(t * 2.5) * 0.05;
+    
+    // Left antenna
+    antennae[0].rotation.z = -0.15 + wiggle;
+    antennae[2].position.y = 0.9 + Math.sin(t * 3) * 0.02; // Tip
+    
+    // Right antenna
+    antennae[1].rotation.z = 0.15 - wiggle;
+    antennae[3].position.y = 0.9 + Math.sin(t * 3 + Math.PI) * 0.02; // Tip
+  }
+
+  // Gentle breathing effect on the body
+  const breath = Math.sin(t * 1.2) * 0.02;
+  node.scale.x = node.userData.originalScale.x + breath;
+  node.scale.y = node.userData.originalScale.y + breath * 0.5;
+  node.scale.z = node.userData.originalScale.z + breath;
 }
 
 // Main loop
@@ -477,6 +907,22 @@ function tick(now) {
   const dtMs = now - last; last = now; const dt = Math.min(3.0, dtMs / 16.6667);
 
   controls.update();
+
+  // Animate background bubbles
+  backgroundBubbles.children.forEach(bubble => {
+    bubble.position.y += bubble.userData.speed;
+    bubble.rotation.y += bubble.userData.rotationSpeed;
+    bubble.rotation.z += bubble.userData.rotationSpeed * 0.5;
+    
+    // Reset bubble position when it goes too high
+    if (bubble.position.y > 15) {
+      bubble.position.y = bubble.userData.originalY - 20;
+    }
+    
+    // Gentle pulsing effect
+    const pulse = Math.sin(now * 0.001 + bubble.position.x) * 0.1;
+    bubble.scale.setScalar(1 + pulse);
+  });
 
   // Update selection previews idle motion when in select scene
   if (state.scene === 'select') {
