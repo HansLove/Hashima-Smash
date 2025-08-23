@@ -29,6 +29,8 @@ const p1Rand = document.getElementById('p1-rand');
 const p2Prev = document.getElementById('p2-prev');
 const p2Next = document.getElementById('p2-next');
 const p2Rand = document.getElementById('p2-rand');
+const p1Breed = document.getElementById('p1-breed');
+const p2Breed = document.getElementById('p2-breed');
 const btnBackMenu = document.getElementById('btn-back-menu');
 const btnStartGame = document.getElementById('btn-start-game');
 
@@ -148,8 +150,39 @@ const HITSTUN_FRAMES = 18;
 const KNOCKBACK_X = 0.25;
 const KNOCKBACK_Y = 0.18;
 
-// Character factory (richer bubble Hashimas)
+// Character factory (three distinct bubble breeds)
 const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa, 0xff6b35, 0x8e44ad, 0x16a085, 0xe74c3c];
+
+// Breed definitions with unique characteristics
+const BUBBLE_BREEDS = {
+  HUMAN: {
+    name: "Human",
+    description: "Balanced bubble creatures with human-like features",
+    bodyScale: { x: 1, y: 1.2, z: 0.9 },
+    coreScale: 0.65,
+    features: ['arms', 'legs', 'nose', 'mouth', 'particles'],
+    accessories: ['halo', 'horns', 'stripe'],
+    animationSpeed: 1.0
+  },
+  CAT: {
+    name: "Cat",
+    description: "Agile bubble creatures with cat-like features",
+    bodyScale: { x: 0.9, y: 1.1, z: 0.8 },
+    coreScale: 0.6,
+    features: ['arms', 'legs', 'nose', 'mouth', 'particles', 'ears', 'tail'],
+    accessories: ['collar', 'whiskers', 'stripe'],
+    animationSpeed: 1.3
+  },
+  DRAGON: {
+    name: "Dragon",
+    description: "Majestic bubble creatures with dragon-like features",
+    bodyScale: { x: 1.1, y: 1.3, z: 1.0 },
+    coreScale: 0.7,
+    features: ['arms', 'legs', 'nose', 'mouth', 'particles', 'wings', 'spikes'],
+    accessories: ['halo', 'horns', 'stripe', 'scales'],
+    animationSpeed: 0.8
+  }
+};
 
 function seededRandom(seed) {
   let s = (seed >>> 0) || 1;
@@ -159,11 +192,12 @@ function seededRandom(seed) {
   };
 }
 
-function createBubbleHashima(color, seed = 1) {
+function createBubbleHashima(color, breedType = 'HUMAN', seed = 1) {
   const rand = seededRandom(seed);
+  const breed = BUBBLE_BREEDS[breedType];
   const group = new THREE.Group();
 
-  // Enhanced body: more humanoid proportions with better materials
+  // Enhanced body with breed-specific proportions
   const bodyMat = new THREE.MeshStandardMaterial({ 
     color, 
     metalness: 0.3, 
@@ -172,12 +206,12 @@ function createBubbleHashima(color, seed = 1) {
     opacity: 0.9
   });
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 64, 64), bodyMat);
-  body.scale.set(1, 1.2, 0.9); // More human-like proportions
+  body.scale.set(breed.bodyScale.x, breed.bodyScale.y, breed.bodyScale.z);
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
-  // Enhanced inner core with better lighting effects
+  // Enhanced inner core with breed-specific sizing
   const coreColor = new THREE.Color(color).offsetHSL(0, 0, 0.15);
   const coreMat = new THREE.MeshStandardMaterial({ 
     color: coreColor.getHex(), 
@@ -188,11 +222,11 @@ function createBubbleHashima(color, seed = 1) {
     transparent: true,
     opacity: 0.8
   });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.65, 48, 48), coreMat);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(breed.coreScale, 48, 48), coreMat);
   core.castShadow = false;
   group.add(core);
 
-  // Enhanced eyes with more realistic structure
+  // Enhanced eyes with breed-specific positioning
   const eyeWhiteMat = new THREE.MeshStandardMaterial({ 
     color: 0xffffff, 
     roughness: 0.3,
@@ -215,48 +249,229 @@ function createBubbleHashima(color, seed = 1) {
   const eyeDarkGeo = new THREE.SphereGeometry(0.08, 20, 20);
   const eyeHighlightGeo = new THREE.SphereGeometry(0.04, 16, 16);
 
+  // Eye positioning varies by breed
+  const eyeOffset = breedType === 'CAT' ? 0.25 : 0.28;
+  const eyeHeight = breedType === 'DRAGON' ? 0.2 : 0.15;
+
   // Left eye
   const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
-  eL.position.set(-0.28, 0.15, 0.78);
+  eL.position.set(-eyeOffset, eyeHeight, 0.78);
   const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
-  eLi.position.set(-0.28, 0.12, 0.92);
+  eLi.position.set(-eyeOffset, eyeHeight - 0.03, 0.92);
   const eLh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
-  eLh.position.set(-0.32, 0.18, 0.82);
+  eLh.position.set(-eyeOffset - 0.04, eyeHeight + 0.03, 0.82);
   
   // Right eye
   const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
-  eR.position.set(0.28, 0.15, 0.78);
+  eR.position.set(eyeOffset, eyeHeight, 0.78);
   const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
-  eRi.position.set(0.28, 0.12, 0.92);
+  eRi.position.set(eyeOffset, eyeHeight - 0.03, 0.92);
   const eRh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
-  eRh.position.set(0.32, 0.18, 0.82);
+  eRh.position.set(eyeOffset + 0.04, eyeHeight + 0.03, 0.82);
   
   for (const m of [eL, eLi, eLh, eR, eRi, eRh]) { 
     m.castShadow = true; 
     group.add(m); 
   }
 
-  // Enhanced mouth with more expression
+  // Enhanced mouth with breed-specific expressions
   const mouthMat = new THREE.MeshStandardMaterial({ 
     color: 0x2a2a2a, 
     roughness: 0.4,
     metalness: 0.1
   });
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 12, 32), mouthMat);
-  mouth.position.set(0, -0.08, 0.88);
+  
+  let mouth;
+  if (breedType === 'CAT') {
+    // Cat mouth - smaller and more delicate
+    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 8, 24), mouthMat);
+    mouth.position.set(0, -0.06, 0.88);
+  } else if (breedType === 'DRAGON') {
+    // Dragon mouth - larger and more prominent
+    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 12, 32), mouthMat);
+    mouth.position.set(0, -0.1, 0.88);
+  } else {
+    // Human mouth - standard
+    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 12, 32), mouthMat);
+    mouth.position.set(0, -0.08, 0.88);
+  }
   group.add(mouth);
 
-  // Nose (small bubble)
-  const noseMat = new THREE.MeshStandardMaterial({ 
-    color: new THREE.Color(color).offsetHSL(0, -0.1, 0.1).getHex(),
-    transparent: true,
-    opacity: 0.7
-  });
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), noseMat);
-  nose.position.set(0, 0.05, 0.9);
-  group.add(nose);
+  // Nose with breed-specific styling
+  if (breed.features.includes('nose')) {
+    const noseMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, -0.1, 0.1).getHex(),
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    let nose;
+    if (breedType === 'CAT') {
+      // Cat nose - small triangle-like
+      nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 8), noseMat);
+      nose.rotation.x = Math.PI / 2;
+      nose.position.set(0, 0.08, 0.92);
+    } else if (breedType === 'DRAGON') {
+      // Dragon nose - larger and more prominent
+      nose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), noseMat);
+      nose.position.set(0, 0.12, 0.9);
+    } else {
+      // Human nose - standard
+      nose = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), noseMat);
+      nose.position.set(0, 0.05, 0.9);
+    }
+    group.add(nose);
+  }
 
-  // Enhanced stripe patterns with more variety
+  // Cat ears
+  if (breedType === 'CAT' && breed.features.includes('ears')) {
+    const earMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    const leftEar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 8), earMat);
+    const rightEar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 8), earMat);
+    
+    leftEar.position.set(-0.2, 0.8, 0.4);
+    leftEar.rotation.z = -0.3;
+    leftEar.rotation.x = -0.2;
+    
+    rightEar.position.set(0.2, 0.8, 0.4);
+    rightEar.rotation.z = 0.3;
+    rightEar.rotation.x = -0.2;
+    
+    leftEar.castShadow = true;
+    rightEar.castShadow = true;
+    group.add(leftEar, rightEar);
+  }
+
+  // Dragon wings
+  if (breedType === 'DRAGON' && breed.features.includes('wings')) {
+    const wingMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
+      transparent: true,
+      opacity: 0.7,
+      metalness: 0.4,
+      roughness: 0.3
+    });
+    
+    // Left wing
+    const leftWing = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.2, 8, 12), wingMat);
+    leftWing.position.set(-0.8, 0.3, 0.2);
+    leftWing.rotation.y = -0.8;
+    leftWing.rotation.z = 0.3;
+    
+    // Right wing
+    const rightWing = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.2, 8, 12), wingMat);
+    rightWing.position.set(0.8, 0.3, 0.2);
+    rightWing.rotation.y = 0.8;
+    rightWing.rotation.z = -0.3;
+    
+    leftWing.castShadow = true;
+    rightWing.castShadow = true;
+    group.add(leftWing, rightWing);
+  }
+
+  // Dragon spikes
+  if (breedType === 'DRAGON' && breed.features.includes('spikes')) {
+    const spikeMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
+      metalness: 0.6,
+      roughness: 0.2
+    });
+    
+    for (let i = 0; i < 5; i++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.15, 8), spikeMat);
+      spike.position.set(0, 0.9 + i * 0.08, 0.3);
+      spike.castShadow = true;
+      group.add(spike);
+    }
+  }
+
+  // Cat tail
+  if (breedType === 'CAT' && breed.features.includes('tail')) {
+    const tailMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.05).getHex(),
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    const tailSegments = 4;
+    for (let i = 0; i < tailSegments; i++) {
+      const segment = new THREE.Mesh(new THREE.SphereGeometry(0.08 - i * 0.01, 12, 12), tailMat);
+      segment.position.set(0.4 + i * 0.1, -0.3 - i * 0.1, 0.2);
+      segment.castShadow = true;
+      group.add(segment);
+    }
+    
+    // Tail tip
+    const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), tailMat);
+    tailTip.position.set(0.8, -0.7, 0.2);
+    tailTip.castShadow = true;
+    group.add(tailTip);
+  }
+
+  // Cat whiskers
+  if (breedType === 'CAT' && breed.accessories.includes('whiskers')) {
+    const whiskerMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6
+    });
+    
+    for (let i = 0; i < 3; i++) {
+      const leftWhisker = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.3, 4), whiskerMat);
+      const rightWhisker = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.3, 4), whiskerMat);
+      
+      leftWhisker.position.set(-0.3, 0.05 + i * 0.02, 0.85);
+      leftWhisker.rotation.z = -0.2 + i * 0.1;
+      
+      rightWhisker.position.set(0.3, 0.05 + i * 0.02, 0.85);
+      rightWhisker.rotation.z = 0.2 - i * 0.1;
+      
+      group.add(leftWhisker, rightWhisker);
+    }
+  }
+
+  // Cat collar
+  if (breedType === 'CAT' && breed.accessories.includes('collar')) {
+    const collarMat = new THREE.MeshStandardMaterial({ 
+      color: 0xff6b35,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.04, 16, 64), collarMat);
+    collar.position.y = -0.1;
+    collar.rotation.x = Math.PI / 2;
+    group.add(collar);
+  }
+
+  // Dragon scales
+  if (breedType === 'DRAGON' && breed.accessories.includes('scales')) {
+    const scaleMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
+      metalness: 0.7,
+      roughness: 0.2
+    });
+    
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 3; j++) {
+        const scale = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), scaleMat);
+        scale.position.set(
+          (i - 4) * 0.15,
+          -0.2 + j * 0.15,
+          0.95
+        );
+        scale.scale.set(1, 0.6, 0.8);
+        group.add(scale);
+      }
+    }
+  }
+
+  // Enhanced stripe patterns with breed-specific variety
   let stripe = null;
   if (rand() > 0.3) {
     const stripeColor = new THREE.Color(color).offsetHSL(0.08, 0.15, 0.2);
@@ -268,26 +483,39 @@ function createBubbleHashima(color, seed = 1) {
       emissiveIntensity: 0.1
     });
     
-    if (rand() > 0.5) {
-      // Horizontal stripe
-      stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.04, 16, 64), stripeMat);
-      stripe.rotation.x = Math.PI * (0.1 + rand() * 0.4);
-    } else {
-      // Vertical stripe
-      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 16), stripeMat);
+    if (breedType === 'CAT') {
+      // Cat stripes - vertical and more numerous
+      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 16), stripeMat);
       stripe.rotation.z = Math.PI / 2;
       stripe.rotation.y = Math.PI * rand();
+      stripe.position.y = 0.1;
+    } else if (breedType === 'DRAGON') {
+      // Dragon stripes - diagonal and dramatic
+      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 16), stripeMat);
+      stripe.rotation.z = Math.PI / 2;
+      stripe.rotation.y = Math.PI * 0.25 + rand() * 0.5;
+      stripe.position.y = 0.2;
+    } else {
+      // Human stripes - horizontal
+      if (rand() > 0.5) {
+        stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.04, 16, 64), stripeMat);
+        stripe.rotation.x = Math.PI * (0.1 + rand() * 0.4);
+      } else {
+        stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 16), stripeMat);
+        stripe.rotation.z = Math.PI / 2;
+        stripe.rotation.y = Math.PI * rand();
+      }
     }
     group.add(stripe);
   }
 
-  // Enhanced accessories with more variety
+  // Enhanced accessories with breed-specific variety
   let halo = null; 
   let horns = [];
   let antennae = [];
   
   if (rand() > 0.6) {
-    // Enhanced halo with better materials
+    // Enhanced halo with breed-specific styling
     const haloMat = new THREE.MeshStandardMaterial({ 
       color: 0xffee88, 
       emissive: 0xffdd66, 
@@ -295,12 +523,20 @@ function createBubbleHashima(color, seed = 1) {
       metalness: 0.8,
       roughness: 0.2
     });
-    halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 12, 64), haloMat);
-    halo.position.y = 0.8;
+    
+    if (breedType === 'DRAGON') {
+      // Dragon halo - larger and more dramatic
+      halo = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.04, 16, 64), haloMat);
+      halo.position.y = 1.0;
+    } else {
+      // Standard halo
+      halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 12, 64), haloMat);
+      halo.position.y = 0.8;
+    }
     halo.rotation.x = Math.PI / 2;
     group.add(halo);
   } else if (rand() > 0.4) {
-    // Enhanced horns
+    // Enhanced horns with breed-specific styling
     const hornMat = new THREE.MeshStandardMaterial({ 
       color: 0xffffff, 
       roughness: 0.15, 
@@ -308,22 +544,42 @@ function createBubbleHashima(color, seed = 1) {
       transparent: true,
       opacity: 0.9
     });
-    const hornGeo = new THREE.ConeGeometry(0.14, 0.3, 16);
-    const h1 = new THREE.Mesh(hornGeo, hornMat);
-    const h2 = new THREE.Mesh(hornGeo, hornMat);
-    h1.position.set(-0.28, 0.6, 0.4); 
-    h1.rotation.z = Math.PI * -0.12; 
-    h1.rotation.x = Math.PI * -0.25;
-    h2.position.set(0.28, 0.6, 0.4);  
-    h2.rotation.z = Math.PI * 0.12;  
-    h2.rotation.x = Math.PI * -0.25;
-    for (const h of [h1, h2]) { 
-      h.castShadow = true; 
-      group.add(h); 
-      horns.push(h); 
+    
+    if (breedType === 'DRAGON') {
+      // Dragon horns - larger and more dramatic
+      const hornGeo = new THREE.ConeGeometry(0.18, 0.4, 16);
+      const h1 = new THREE.Mesh(hornGeo, hornMat);
+      const h2 = new THREE.Mesh(hornGeo, hornMat);
+      h1.position.set(-0.35, 0.8, 0.4); 
+      h1.rotation.z = Math.PI * -0.15; 
+      h1.rotation.x = Math.PI * -0.3;
+      h2.position.set(0.35, 0.8, 0.4);  
+      h2.rotation.z = Math.PI * 0.15;  
+      h2.rotation.x = Math.PI * -0.3;
+      for (const h of [h1, h2]) { 
+        h.castShadow = true; 
+        group.add(h); 
+        horns.push(h); 
+      }
+    } else {
+      // Standard horns
+      const hornGeo = new THREE.ConeGeometry(0.14, 0.3, 16);
+      const h1 = new THREE.Mesh(hornGeo, hornMat);
+      const h2 = new THREE.Mesh(hornGeo, hornMat);
+      h1.position.set(-0.28, 0.6, 0.4); 
+      h1.rotation.z = Math.PI * -0.12; 
+      h1.rotation.x = Math.PI * -0.25;
+      h2.position.set(0.28, 0.6, 0.4);  
+      h2.rotation.z = Math.PI * 0.12;  
+      h2.rotation.x = Math.PI * -0.25;
+      for (const h of [h1, h2]) { 
+        h.castShadow = true; 
+        group.add(h); 
+        horns.push(h); 
+      }
     }
-  } else if (rand() > 0.3) {
-    // Antennae
+  } else if (rand() > 0.3 && breedType !== 'CAT') {
+    // Antennae (not for cats)
     const antennaMat = new THREE.MeshStandardMaterial({ 
       color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
       metalness: 0.6,
@@ -355,101 +611,110 @@ function createBubbleHashima(color, seed = 1) {
     antennae = [a1, a2, tip1, tip2];
   }
 
-  // Enhanced arms with more articulation
-  const arms = new THREE.Group();
-  const armMat = new THREE.MeshStandardMaterial({ 
-    color: new THREE.Color(color).offsetHSL(0, -0.08, 0.08).getHex(), 
-    roughness: 0.4,
-    metalness: 0.2,
-    transparent: true,
-    opacity: 0.8
-  });
-  
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? -1 : 1;
-    const s = 0.2 + rand() * 0.08;
+  // Enhanced arms with breed-specific articulation
+  if (breed.features.includes('arms')) {
+    const arms = new THREE.Group();
+    const armMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, -0.08, 0.08).getHex(), 
+      roughness: 0.4,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.8
+    });
     
-    // Upper arm
-    const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.4, 12), armMat);
-    upperArm.position.set(side * 0.8, -0.1, 0.1);
-    upperArm.rotation.z = side * 0.3;
-    upperArm.castShadow = true;
-    arms.add(upperArm);
-    
-    // Lower arm
-    const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.35, 12), armMat);
-    lowerArm.position.set(side * 1.1, -0.3, 0.15);
-    lowerArm.rotation.z = side * 0.6;
-    lowerArm.castShadow = true;
-    arms.add(lowerArm);
-    
-    // Hand
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 20, 20), armMat);
-    hand.position.set(side * 1.3, -0.45, 0.2);
-    hand.castShadow = true;
-    arms.add(hand);
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -1 : 1;
+      const s = 0.2 + rand() * 0.08;
+      
+      // Upper arm
+      const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.4, 12), armMat);
+      upperArm.position.set(side * 0.8, -0.1, 0.1);
+      upperArm.rotation.z = side * 0.3;
+      upperArm.castShadow = true;
+      arms.add(upperArm);
+      
+      // Lower arm
+      const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.35, 12), armMat);
+      lowerArm.position.set(side * 1.1, -0.3, 0.15);
+      lowerArm.rotation.z = side * 0.6;
+      lowerArm.castShadow = true;
+      arms.add(lowerArm);
+      
+      // Hand
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 20, 20), armMat);
+      hand.position.set(side * 1.3, -0.45, 0.2);
+      hand.castShadow = true;
+      arms.add(hand);
+    }
+    group.add(arms);
   }
-  group.add(arms);
 
-  // Legs for more human-like appearance
-  const legs = new THREE.Group();
-  const legMat = new THREE.MeshStandardMaterial({ 
-    color: new THREE.Color(color).offsetHSL(0, -0.1, 0.05).getHex(), 
-    roughness: 0.5,
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.7
-  });
-  
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? -1 : 1;
+  // Legs with breed-specific styling
+  if (breed.features.includes('legs')) {
+    const legs = new THREE.Group();
+    const legMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, -0.1, 0.05).getHex(), 
+      roughness: 0.5,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.7
+    });
     
-    // Upper leg
-    const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.5, 12), legMat);
-    upperLeg.position.set(side * 0.3, -0.8, 0);
-    upperLeg.castShadow = true;
-    legs.add(upperLeg);
-    
-    // Lower leg
-    const lowerLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.4, 12), legMat);
-    lowerLeg.position.set(side * 0.3, -1.25, 0);
-    lowerLeg.castShadow = true;
-    legs.add(lowerLeg);
-    
-    // Foot
-    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), legMat);
-    foot.position.set(side * 0.3, -1.45, 0.1);
-    foot.scale.set(1, 0.6, 1.2);
-    foot.castShadow = true;
-    legs.add(foot);
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -1 : 1;
+      
+      // Upper leg
+      const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.5, 12), legMat);
+      upperLeg.position.set(side * 0.3, -0.8, 0);
+      upperLeg.castShadow = true;
+      legs.add(upperLeg);
+      
+      // Lower leg
+      const lowerLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.4, 12), legMat);
+      lowerLeg.position.set(side * 0.3, -1.25, 0);
+      lowerLeg.castShadow = true;
+      legs.add(lowerLeg);
+      
+      // Foot
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), legMat);
+      foot.position.set(side * 0.3, -1.45, 0.1);
+      foot.scale.set(1, 0.6, 1.2);
+      foot.castShadow = true;
+      legs.add(foot);
+    }
+    group.add(legs);
   }
-  group.add(legs);
 
   // Floating particles around the Hashima
-  const particles = new THREE.Group();
-  const particleMat = new THREE.MeshStandardMaterial({ 
-    color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
-    emissive: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
-    emissiveIntensity: 0.6,
-    transparent: true,
-    opacity: 0.7
-  });
-  
-  for (let i = 0; i < 6; i++) {
-    const particle = new THREE.Mesh(new THREE.SphereGeometry(0.03 + rand() * 0.02, 8, 8), particleMat);
-    const angle = (i / 6) * Math.PI * 2;
-    const radius = 1.2 + rand() * 0.3;
-    particle.position.set(
-      Math.cos(angle) * radius,
-      -0.5 + rand() * 0.5,
-      Math.sin(angle) * radius
-    );
-    particles.add(particle);
+  if (breed.features.includes('particles')) {
+    const particles = new THREE.Group();
+    const particleMat = new THREE.MeshStandardMaterial({ 
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
+      emissive: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
+      emissiveIntensity: 0.6,
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    const particleCount = breedType === 'DRAGON' ? 8 : 6;
+    for (let i = 0; i < particleCount; i++) {
+      const particle = new THREE.Mesh(new THREE.SphereGeometry(0.03 + rand() * 0.02, 8, 8), particleMat);
+      const angle = (i / particleCount) * Math.PI * 2;
+      const radius = 1.2 + rand() * 0.3;
+      particle.position.set(
+        Math.cos(angle) * radius,
+        -0.5 + rand() * 0.5,
+        Math.sin(angle) * radius
+      );
+      particles.add(particle);
+    }
+    group.add(particles);
   }
-  group.add(particles);
 
-  // Store anim parts
+  // Store anim parts with breed information
   group.userData = {
+    breed: breedType,
+    breedData: breed,
     idle: { t: Math.random() * Math.PI * 2 },
     blinkT: rand() * Math.PI * 2,
     pupils: [eLi, eRi],
@@ -458,10 +723,10 @@ function createBubbleHashima(color, seed = 1) {
     stripe,
     horns,
     antennae,
-    arms,
-    legs,
-    particles,
-    originalScale: new THREE.Vector3(1, 1.2, 0.9)
+    arms: group.children.find(child => child.type === 'Group' && child.children.length >= 6),
+    legs: group.children.find(child => child.type === 'Group' && child.children.length >= 6 && child !== group.children.find(child => child.type === 'Group' && child.children.length >= 6)),
+    particles: group.children.find(child => child.type === 'Group' && child.children.length > 0 && child.children[0].geometry && child.children[0].geometry.type === 'SphereGeometry'),
+    originalScale: new THREE.Vector3(breed.bodyScale.x, breed.bodyScale.y, breed.bodyScale.z)
   };
   return group;
 }
@@ -471,6 +736,8 @@ const state = {
   scene: 'menu', // 'menu' | 'select' | 'game'
   p1Index: 0,
   p2Index: 1,
+  p1Breed: 'HUMAN',
+  p2Breed: 'CAT',
   p1Health: 100,
   p2Health: 100,
   timer: 60,
@@ -510,23 +777,34 @@ p2Prev.addEventListener('click', () => { state.p2Index = wrapIndex(state.p2Index
 p2Next.addEventListener('click', () => { state.p2Index = wrapIndex(state.p2Index + 1); refreshSelectPreview(); });
 p2Rand.addEventListener('click', () => { state.p2Index = Math.floor(Math.random() * HASHIMA_COLORS.length); refreshSelectPreview(); });
 
+// Breed selection handlers
+p1Breed.addEventListener('change', () => { 
+  state.p1Breed = p1Breed.value; 
+  refreshSelectPreview(); 
+});
+
+p2Breed.addEventListener('change', () => { 
+  state.p2Breed = p2Breed.value; 
+  refreshSelectPreview(); 
+});
+
 btnBackMenu.addEventListener('click', () => { state.scene = 'menu'; showScreen('menu'); });
 btnStartGame.addEventListener('click', startGame);
 
 // Selection preview meshes
 const preview = {
-  p1: createBubbleHashima(HASHIMA_COLORS[state.p1Index], 101),
-  p2: createBubbleHashima(HASHIMA_COLORS[state.p2Index], 202)
+  p1: createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 101),
+  p2: createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 202)
 };
 preview.p1.position.set(-2.1, 0, 0);
 preview.p2.position.set(2.1, 0, 0);
 scene.add(preview.p1, preview.p2);
 
 function refreshSelectPreview() {
-  // Replace materials/colors
+  // Replace materials/colors and breeds
   scene.remove(preview.p1, preview.p2);
-  preview.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], 101);
-  preview.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], 202);
+  preview.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 101);
+  preview.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 202);
   preview.p1.position.set(-2.1, 0, 0);
   preview.p2.position.set(2.1, 0, 0);
   scene.add(preview.p1, preview.p2);
@@ -549,8 +827,8 @@ function startGame() {
   scene.remove(preview.p1, preview.p2);
 
   // Spawn players
-  state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], 1111 + state.p1Index);
-  state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], 2222 + state.p2Index);
+  state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 1111 + state.p1Index);
+  state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 2222 + state.p2Index);
   const p1 = state.entities.p1; const p2 = state.entities.p2;
   p1.position.set(-1.5, 0.0, 0);
   p2.position.set(1.5, 0.0, 0);
@@ -645,11 +923,40 @@ function updateAttackAndDamage(attacker, defender){
     if (attacker.userData.arms && atk.frame >= ATTACK_ACTIVE_START && atk.frame <= ATTACK_ACTIVE_END) {
       const armChildren = attacker.userData.arms.children;
       if (armChildren.length >= 6) {
-        // Attack pose - arms forward
-        armChildren[0].rotation.z = -0.1; // Left upper arm
-        armChildren[1].rotation.z = -0.3; // Left lower arm
-        armChildren[3].rotation.z = 0.1;  // Right upper arm
-        armChildren[4].rotation.z = 0.3;  // Right lower arm
+        const breed = attacker.userData.breed;
+        
+        if (breed === 'CAT') {
+          // Cat attack pose - crouched and ready to pounce
+          armChildren[0].rotation.z = -0.2; // Left upper arm
+          armChildren[1].rotation.z = -0.4; // Left lower arm
+          armChildren[3].rotation.z = 0.2;  // Right upper arm
+          armChildren[4].rotation.z = 0.4;  // Right lower arm
+          
+          // Slight crouch effect
+          attacker.scale.y = attacker.userData.originalScale.y * 0.95;
+        } else if (breed === 'DRAGON') {
+          // Dragon attack pose - wings spread, arms forward
+          armChildren[0].rotation.z = -0.1; // Left upper arm
+          armChildren[1].rotation.z = -0.2; // Left lower arm
+          armChildren[3].rotation.z = 0.1;  // Right upper arm
+          armChildren[4].rotation.z = 0.2;  // Right lower arm
+          
+          // Wings spread during attack
+          const wings = attacker.children.filter(child => 
+            child.geometry && child.geometry.type === 'PlaneGeometry' && 
+            child.position.y > 0.2
+          );
+          wings.forEach((wing, index) => {
+            wing.rotation.z = index === 0 ? 0.5 : -0.5;
+            wing.rotation.y = index === 0 ? -1.0 : 1.0;
+          });
+        } else {
+          // Human attack pose - standard forward stance
+          armChildren[0].rotation.z = -0.1; // Left upper arm
+          armChildren[1].rotation.z = -0.3; // Left lower arm
+          armChildren[3].rotation.z = 0.1;  // Right upper arm
+          armChildren[4].rotation.z = 0.3;  // Right lower arm
+        }
       }
     }
     
@@ -778,7 +1085,10 @@ window.addEventListener('resize', onResize);
 // Idle animation for any hashima
 function animateIdle(node, time) {
   if (!node || !node.userData) return;
-  node.userData.idle.t += 0.02;
+  const breed = node.userData.breed;
+  const breedData = node.userData.breedData;
+  
+  node.userData.idle.t += 0.02 * (breedData?.animationSpeed || 1.0);
   const t = node.userData.idle.t + time * 0.001;
   node.position.y = Math.sin(t * 2) * 0.06;
   node.rotation.y += 0.004;
@@ -786,8 +1096,8 @@ function animateIdle(node, time) {
   // Pupils follow opponent/controls subtly
   const pupils = node.userData.pupils || [];
   for (const p of pupils) {
-    p.position.x = Math.sign(Math.sin(t * 0.7)) * 0.28;
-    p.position.y = 0.12 + Math.sin(t * 1.3) * 0.005;
+    p.position.x = Math.sign(Math.sin(t * 0.7)) * (breed === 'CAT' ? 0.25 : 0.28);
+    p.position.y = (breed === 'DRAGON' ? 0.2 : 0.15) + Math.sin(t * 1.3) * 0.005;
     p.position.z = 0.92 + Math.cos(t * 1.1) * 0.005;
   }
 
@@ -845,6 +1155,70 @@ function animateIdle(node, time) {
     }
   }
 
+  // Breed-specific animations
+  if (breed === 'CAT') {
+    // Cat ear twitching
+    const ears = node.children.filter(child => child.geometry && child.geometry.type === 'ConeGeometry' && child.position.y > 0.7);
+    ears.forEach((ear, index) => {
+      const twitch = Math.sin(t * 4 + index) * 0.02;
+      ear.rotation.z += twitch;
+    });
+
+    // Cat tail wagging
+    const tailParts = node.children.filter(child => 
+      child.geometry && child.geometry.type === 'SphereGeometry' && 
+      child.position.x > 0.3 && child.position.y < -0.2
+    );
+    tailParts.forEach((part, index) => {
+      const wag = Math.sin(t * 2 + index * 0.5) * 0.1;
+      part.rotation.z = wag;
+      part.rotation.y = Math.sin(t * 1.5 + index) * 0.05;
+    });
+
+    // Cat whisker movement
+    const whiskers = node.children.filter(child => 
+      child.geometry && child.geometry.type === 'CylinderGeometry' && 
+      child.geometry.parameters.radius < 0.01
+    );
+    whiskers.forEach((whisker, index) => {
+      const wiggle = Math.sin(t * 3 + index) * 0.02;
+      whisker.rotation.z += wiggle;
+    });
+  }
+
+  if (breed === 'DRAGON') {
+    // Dragon wing flapping
+    const wings = node.children.filter(child => 
+      child.geometry && child.geometry.type === 'PlaneGeometry' && 
+      child.position.y > 0.2
+    );
+    wings.forEach((wing, index) => {
+      const flap = Math.sin(t * 1.5 + index * Math.PI) * 0.3;
+      wing.rotation.z = (index === 0 ? 0.3 : -0.3) + flap;
+      wing.rotation.y = (index === 0 ? -0.8 : 0.8) + Math.sin(t * 0.8) * 0.1;
+    });
+
+    // Dragon spike movement
+    const spikes = node.children.filter(child => 
+      child.geometry && child.geometry.type === 'ConeGeometry' && 
+      child.position.y > 0.8
+    );
+    spikes.forEach((spike, index) => {
+      const sway = Math.sin(t * 0.8 + index * 0.3) * 0.01;
+      spike.rotation.z += sway;
+    });
+
+    // Dragon scale shimmer
+    const scales = node.children.filter(child => 
+      child.geometry && child.geometry.type === 'SphereGeometry' && 
+      child.position.z > 0.9
+    );
+    scales.forEach((scale, index) => {
+      const shimmer = Math.sin(t * 2 + index * 0.2) * 0.1;
+      scale.material.emissiveIntensity = 0.1 + shimmer * 0.05;
+    });
+  }
+
   // Animate floating particles
   if (node.userData.particles) {
     const particleChildren = node.userData.particles.children;
@@ -869,7 +1243,7 @@ function animateIdle(node, time) {
   // Halo gentle spin or horn subtle tilt
   if (node.userData.halo) {
     node.userData.halo.rotation.z += 0.01;
-    node.userData.halo.position.y = 0.8 + Math.sin(t * 1.5) * 0.02;
+    node.userData.halo.position.y = (breed === 'DRAGON' ? 1.0 : 0.8) + Math.sin(t * 1.5) * 0.02;
   }
   
   if (node.userData.horns && node.userData.horns.length) {
