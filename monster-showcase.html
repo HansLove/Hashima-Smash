@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hashima Next-Gen Monster Showcase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        
+        .title {
+            font-size: 3rem;
+            background: linear-gradient(45deg, #00aaff, #ff00aa, #00ffaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #cccccc;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .showcase-container {
+            margin-top: 200px;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .monster-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .monster-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .monster-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #00aaff, #ff00aa, #00ffaa);
+        }
+        
+        .monster-name {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+        }
+        
+        .monster-type {
+            font-size: 1rem;
+            color: #00aaff;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .monster-description {
+            color: #cccccc;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .monster-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .feature-tag {
+            background: rgba(0, 170, 255, 0.2);
+            color: #00aaff;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(0, 170, 255, 0.3);
+        }
+        
+        .rarity-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .rarity-common { background: #4a4a4a; color: #ffffff; }
+        .rarity-uncommon { background: #2ecc71; color: #ffffff; }
+        .rarity-rare { background: #3498db; color: #ffffff; }
+        .rarity-epic { background: #9b59b6; color: #ffffff; }
+        .rarity-legendary { background: #f39c12; color: #ffffff; }
+        .rarity-mythic { background: #e74c3c; color: #ffffff; }
+        
+        .monster-preview {
+            width: 100%;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .preview-placeholder {
+            color: #666666;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.8rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00ffaa;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888888;
+            text-transform: uppercase;
+            margin-top: 0.3rem;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 3rem;
+            margin-top: 4rem;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .footer-text {
+            color: #888888;
+            font-size: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .showcase-container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .monster-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">Hashima Next-Gen Monster Showcase</h1>
+        <p class="subtitle">Discover the new generation of color-bubble monsters with complex designs, lobster hands, tails, wings, and unique eye types</p>
+    </div>
+    
+    <div class="showcase-container">
+        <!-- Classic Bubble -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-common">Common</div>
+            <h2 class="monster-name">Classic Bubble</h2>
+            <div class="monster-type">BUBBLE</div>
+            <p class="monster-description">Traditional bubble creatures with balanced features and smooth, round bodies. Perfect for beginners and classic gameplay.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Smooth Body</span>
+                <span class="feature-tag">Balanced Stats</span>
+                <span class="feature-tag">Classic Design</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Lobster Claw -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-rare">Rare</div>
+            <h2 class="monster-name">Lobster Claw</h2>
+            <div class="monster-type">LOBSTER</div>
+            <p class="monster-description">Aquatic monsters with powerful lobster hands featuring multiple claws and pincers. Their spiked tails make them formidable opponents.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Lobster Hands</span>
+                <span class="feature-tag">Spiked Tail</span>
+                <span class="feature-tag">Aquatic</span>
+                <span class="feature-tag">Multiple Claws</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">6</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dragon Lord -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-epic">Epic</div>
+            <h2 class="monster-name">Dragon Lord</h2>
+            <div class="monster-type">DRAGON</div>
+            <p class="monster-description">Majestic creatures with dragon wings and flowing tails. Their scaled bodies and reptilian eyes exude power and authority.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Dragon Wings</span>
+                <span class="feature-tag">Flowing Tail</span>
+                <span class="feature-tag">Scaled Body</span>
+                <span class="feature-tag">Reptilian Eyes</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">15</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Agile Cat -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-uncommon">Uncommon</div>
+            <h2 class="monster-name">Agile Cat</h2>
+            <div class="monster-type">CAT</div>
+            <p class="monster-description">Swift creatures with feathered tails and cat-like grace. Their slit eyes and agile movements make them excellent for hit-and-run tactics.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Feathered Tail</span>
+                <span class="feature-tag">Slit Eyes</span>
+                <span class="feature-tag">Agile</span>
+                <span class="feature-tag">Fast Movement</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">7</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alien Entity -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-legendary">Legendary</div>
+            <h2 class="monster-name">Alien Entity</h2>
+            <div class="monster-type">ALIEN</div>
+            <p class="monster-description">Otherworldly beings with geometric hexagonal bodies and bat wings. Their glowing alien eyes and otherworldly appearance make them truly unique.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Geometric Body</span>
+                <span class="feature-tag">Bat Wings</span>
+                <span class="feature-tag">Glowing Eyes</span>
+                <span class="feature-tag">Otherworldly</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">18</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mechanical Bot -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-rare">Rare</div>
+            <h2 class="monster-name">Mechanical Bot</h2>
+            <div class="monster-type">ROBOT</div>
+            <p class="monster-description">Industrial robots with square bodies and scaled tails. Their geometric robot eyes and mechanical design represent the future of monster technology.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Square Body</span>
+                <span class="feature-tag">Scaled Tail</span>
+                <span class="feature-tag">Robot Eyes</span>
+                <span class="feature-tag">Mechanical</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">14</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">11</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dark Demon -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-epic">Epic</div>
+            <h2 class="monster-name">Dark Demon</h2>
+            <div class="monster-type">DEMON</div>
+            <p class="monster-description">Menacing creatures with demonic slitted eyes and tattered wings. Their spiked tails and dark appearance strike fear into opponents.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Demonic Eyes</span>
+                <span class="feature-tag">Tattered Wings</span>
+                <span class="feature-tag">Spiked Tail</span>
+                <span class="feature-tag">Menacing</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">16</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">9</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ethereal Butterfly -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-uncommon">Uncommon</div>
+            <h2 class="monster-name">Ethereal Butterfly</h2>
+            <div class="monster-type">BUTTERFLY</div>
+            <p class="monster-description">Delicate beings with butterfly wings and feathered tails. Their graceful movements and delicate design make them beautiful yet deadly.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Butterfly Wings</span>
+                <span class="feature-tag">Feathered Tail</span>
+                <span class="feature-tag">Delicate</span>
+                <span class="feature-tag">Graceful</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">9</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Crystal Guardian -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-legendary">Legendary</div>
+            <h2 class="monster-name">Crystal Guardian</h2>
+            <div class="monster-type">CRYSTAL</div>
+            <p class="monster-description">Crystalline entities with geometric octahedral bodies and insect wings. Their ghost-like eyes and crystalline structure make them truly unique.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Crystalline Body</span>
+                <span class="feature-tag">Insect Wings</span>
+                <span class="feature-tag">Ghost Eyes</span>
+                <span class="feature-tag">Geometric</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">17</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">13</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Phantom Ghost -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-mythic">Mythic</div>
+            <h2 class="monster-name">Phantom Ghost</h2>
+            <div class="monster-type">GHOST</div>
+            <p class="monster-description">Ethereal spirits with organic torus bodies and angel wings. Their ghostly eyes and ethereal nature make them the rarest of all monsters.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Organic Body</span>
+                <span class="feature-tag">Angel Wings</span>
+                <span class="feature-tag">Ghost Eyes</span>
+                <span class="feature-tag">Ethereal</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">20</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">15</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Industrial Mech -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-epic">Epic</div>
+            <h2 class="monster-name">Industrial Mech</h2>
+            <div class="monster-type">MECHANICAL</div>
+            <p class="monster-description">Advanced machines with mechanical dodecahedron bodies and industrial design. Their robot eyes and scaled tails represent cutting-edge monster technology.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Mechanical Body</span>
+                <span class="feature-tag">Scaled Tail</span>
+                <span class="feature-tag">Robot Eyes</span>
+                <span class="feature-tag">Industrial</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">16</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chitinous Bug -->
+        <div class="monster-card">
+            <div class="rarity-badge rarity-rare">Rare</div>
+            <h2 class="monster-name">Chitinous Bug</h2>
+            <div class="monster-type">BUG</div>
+            <p class="monster-description">Insectoid creatures with compound eyes and crystalline wings. Their chitinous bodies and bug-like features make them unique among monsters.</p>
+            <div class="monster-features">
+                <span class="feature-tag">Compound Eyes</span>
+                <span class="feature-tag">Crystalline Wings</span>
+                <span class="feature-tag">Chitinous</span>
+                <span class="feature-tag">Insectoid</span>
+            </div>
+            <div class="monster-preview">
+                <div class="preview-placeholder">3D Preview Coming Soon</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">13</div>
+                    <div class="stat-label">Attack</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">Defense</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p class="footer-text">Hashima Next-Generation Monster Collection • Advanced 3D Bubble Designs • Complex Features & Animations</p>
+    </div>
+</body>
+</html>

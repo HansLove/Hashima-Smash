@@ -1,4 +1,38 @@
-// App bootstrap: screens, state, and 3D scene orchestration (globals via script tags)
+// App bootstrap: screens, state, and 3D scene orchestration (ES6 modules)
+
+// Import Three.js and controls with error handling
+let THREE;
+
+function loadThreeJS() {
+  return new Promise((resolve, reject) => {
+    // Check if Three.js is already loaded
+    if (window.THREE) {
+      THREE = window.THREE;
+      OrbitControls = window.THREE.OrbitControls;
+      console.log('Three.js loaded from global scope');
+      resolve(true);
+      return;
+    }
+
+    // Load Three.js via script tag
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/three@0.160.0/build/three.min.js';
+    script.onload = () => {
+      THREE = window.THREE;
+      
+      console.log('Three.js loaded successfully');
+      resolve(true);
+    };
+    script.onerror = () => {
+      console.error('Failed to load Three.js');
+      reject(new Error('Three.js failed to load'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// Next-Generation Monster Factory
+import { createNextGenHashima, setThreeJS, getThreeJS } from './monster-factory.js';
 
 // Game constants - Smash Bros style
 const ARENA_HALF_WIDTH = 8;
@@ -22,6 +56,180 @@ const FAST_FALL_MULTIPLIER = 1.5;
 const COMBO_WINDOW = 15;
 const AIR_ATTACK_MULTIPLIER = 0.8;
 const PERFECT_SHIELD_FRAMES = 3;
+
+// Attack system - Smash Bros style (moved to top for access)
+const ATTACK_TYPES = {
+  NEUTRAL: { 
+    name: 'Neutral', 
+    damage: 6, 
+    knockback: 0.6, 
+    startup: 3, 
+    active: 4, 
+    endlag: 8, 
+    range: 1.0,
+    description: 'Quick jab, low knockback'
+  },
+  SIDE: { 
+    name: 'Side', 
+    damage: 12, 
+    knockback: 1.2, 
+    startup: 6, 
+    active: 8, 
+    endlag: 16, 
+    range: 1.6,
+    description: 'Forward strike, good knockback'
+  },
+  UP: { 
+    name: 'Up', 
+    damage: 10, 
+    knockback: 1.0, 
+    startup: 5, 
+    active: 7, 
+    endlag: 14, 
+    range: 1.4,
+    description: 'Upward strike, vertical knockback'
+  },
+  DOWN: { 
+    name: 'Down', 
+    damage: 16, 
+    knockback: 1.5, 
+    startup: 10, 
+    active: 12, 
+    endlag: 24, 
+    range: 1.2,
+    description: 'Powerful downward strike, high knockback'
+  }
+};
+
+// Gameplay constants - Smash Bros style
+
+// Enhanced fighting mechanics (constants defined at top of file)
+
+// Combo system
+function addCombo(entity, attackType) {
+  if (!entity.userData.combo) entity.userData.combo = { count: 0, lastAttack: null, timer: 0 };
+  
+  if (entity.userData.combo.lastAttack === attackType && entity.userData.combo.timer < COMBO_WINDOW) {
+    entity.userData.combo.count++;
+    entity.userData.combo.timer = 0;
+  } else {
+    entity.userData.combo.count = 1;
+    entity.userData.combo.timer = 0;
+  }
+  
+  entity.userData.combo.lastAttack = attackType;
+}
+
+// Perfect shield system
+function checkPerfectShield(entity) {
+  if (entity.userData.shielding && entity.userData.shieldFrames >= SHIELD_FRAMES - PERFECT_SHIELD_FRAMES) {
+    entity.userData.perfectShield = true;
+    entity.userData.perfectShieldFrames = 5;
+    // Visual feedback for perfect shield
+    if (entity.userData.core) {
+      entity.userData.core.material.emissiveIntensity = 1.2;
+      entity.userData.core.material.color.setHex(0x00ffff);
+    }
+  }
+}
+
+// Air attack system
+function isAirAttack(entity) {
+  return !entity.userData.grounded;
+}
+
+// Enhanced movement options
+function addMovementOptions(entity) {
+  // Dash attack (running + attack)
+  if (Math.abs(entity.userData.vx) > HORIZ_SPEED * 0.8 && entity.userData.grounded) {
+    entity.userData.dashing = true;
+  } else {
+    entity.userData.dashing = false;
+  }
+  
+  // Crouch (hold down while grounded)
+  if (entity.userData.grounded && entity.userData.vy < 0) {
+    entity.userData.crouching = true;
+    entity.scale.y = entity.userData.originalScale.y * 0.8;
+  } else {
+    entity.userData.crouching = false;
+  }
+}
+
+// Visual effects
+function createHitParticles(position) {
+  const particleCount = 8;
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.left = (position.x + 4) * 50 + window.innerWidth / 2 + 'px';
+    particle.style.top = (-position.y + 2) * 50 + window.innerHeight / 2 + 'px';
+    particle.style.animationDelay = (i * 0.1) + 's';
+    document.body.appendChild(particle);
+    
+    // Remove particle after animation
+    setTimeout(() => {
+      if (particle.parentNode) {
+        particle.parentNode.removeChild(particle);
+      }
+    }, 3000);
+  }
+}
+
+function createScreenShake(intensity = 5) {
+  const shake = () => {
+    const x = (Math.random() - 0.5) * intensity;
+    const y = (Math.random() - 0.5) * intensity;
+    renderer.domElement.style.transform = `translate(${x}px, ${y}px)`;
+  };
+  
+  let count = 0;
+  const maxShakes = 10;
+  const shakeInterval = setInterval(() => {
+    shake();
+    count++;
+    if (count >= maxShakes) {
+      clearInterval(shakeInterval);
+      renderer.domElement.style.transform = 'translate(0, 0)';
+    }
+  }, 50);
+}
+
+// Enhanced camera effects
+function updateCameraEffects() {
+  if (state.scene === 'game' && state.gameRunning) {
+    const p1 = state.entities.p1;
+    const p2 = state.entities.p2;
+    
+    if (p1 && p2) {
+      // Dynamic camera positioning based on player positions
+      const centerX = (p1.position.x + p2.position.x) / 2;
+      const centerY = Math.max(p1.position.y, p2.position.y) + 1.2;
+      
+      // Smooth camera follow
+      camera.position.x += (centerX - camera.position.x) * 0.02;
+      camera.position.y += (centerY - camera.position.y) * 0.02;
+      
+      // Update controls target
+      controls.target.set(centerX, centerY - 0.5, 0);
+    }
+  }
+}
+
+// Animate background bubbles
+function animateBackgroundBubbles() {
+  if (scene && scene.userData.backgroundBubbles) {
+    const backgroundBubbles = scene.userData.backgroundBubbles;
+    backgroundBubbles.children.forEach(bubble => {
+      if (bubble.userData) {
+        // Float up and down
+        bubble.position.y = bubble.userData.originalY + Math.sin(Date.now() * bubble.userData.speed) * 0.5;
+        // Gentle rotation
+        bubble.rotation.y += bubble.userData.rotationSpeed;
+      }
+    });
+  }
+}
 
 // Screens
 const screenMenu = document.getElementById('menu-screen');
@@ -60,133 +268,203 @@ const btnBackMenu = document.getElementById('btn-back-menu');
 const btnStartGame = document.getElementById('btn-start-game');
 
 // 3D Renderer
-const root = document.getElementById('three-root');
-const renderer = new THREE.WebGLRenderer({ 
-  antialias: true, 
-  alpha: true,
-  powerPreference: "high-performance"
-});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
-renderer.outputEncoding = THREE.sRGBEncoding;
-root.appendChild(renderer.domElement);
+let root, renderer, scene, camera, controls;
 
-// Scene graph
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
-camera.position.set(0, 2.2, 9);
-
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.target.set(0, 1.2, 0);
-
-// Lighting and ground
-const hemi = new THREE.HemisphereLight(0xffffff, 0x141414, 1.2);
-scene.add(hemi);
-const dir = new THREE.DirectionalLight(0xffffff, 1.3);
-dir.position.set(4, 8, 4);
-dir.castShadow = true;
-dir.shadow.mapSize.width = 2048;
-dir.shadow.mapSize.height = 2048;
-dir.shadow.camera.near = 0.5;
-dir.shadow.camera.far = 50;
-dir.shadow.camera.left = -10;
-dir.shadow.camera.right = 10;
-dir.shadow.camera.top = 10;
-dir.shadow.camera.bottom = -10;
-scene.add(dir);
-
-// Add ambient light for better bubble visibility
-const ambient = new THREE.AmbientLight(0x404040, 0.6);
-scene.add(ambient);
-
-// Add point lights for dramatic bubble effects
-const pointLight1 = new THREE.PointLight(0x00aaff, 0.8, 15);
-pointLight1.position.set(-3, 3, 2);
-scene.add(pointLight1);
-
-const pointLight2 = new THREE.PointLight(0xff00aa, 0.6, 12);
-pointLight2.position.set(3, 2, -2);
-scene.add(pointLight2);
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ 
-    color: 0x0a0a0a, 
-    roughness: 1,
-    metalness: 0.1
-  })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -1.25;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Add subtle fog for depth
-scene.fog = new THREE.Fog(0x000000, 15, 50);
-
-// Add floating background bubbles for atmosphere
-const backgroundBubbles = new THREE.Group();
-for (let i = 0; i < 20; i++) {
-  const bubbleSize = 0.1 + Math.random() * 0.3;
-  const bubbleMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color().setHSL(Math.random(), 0.3, 0.6),
-    transparent: true,
-    opacity: 0.3,
-    metalness: 0.8,
-    roughness: 0.1
+function initializeThreeJSScene() {
+  root = document.getElementById('three-root');
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: true, 
+    alpha: true,
+    powerPreference: "high-performance"
   });
-  const bubble = new THREE.Mesh(new THREE.SphereGeometry(bubbleSize, 16, 16), bubbleMat);
-  bubble.position.set(
-    (Math.random() - 0.5) * 40,
-    Math.random() * 20 - 5,
-    (Math.random() - 0.5) * 40
-  );
-  bubble.userData = { 
-    originalY: bubble.position.y,
-    speed: 0.01 + Math.random() * 0.02,
-    rotationSpeed: (Math.random() - 0.5) * 0.02
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  root.appendChild(renderer.domElement);
+
+  // Scene graph
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
+  camera.position.set(0, 2.2, 9);
+
+  // Create controls (always use fallback for now)
+  controls = {
+    enableDamping: () => {},
+    enablePan: () => {},
+    target: { set: () => {} },
+    update: () => {}
   };
-  backgroundBubbles.add(bubble);
+  console.log('Using fallback control system');
+
+  // Lighting and ground
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x141414, 1.2);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.3);
+  dir.position.set(4, 8, 4);
+  dir.castShadow = true;
+  dir.shadow.mapSize.width = 2048;
+  dir.shadow.mapSize.height = 2048;
+  dir.shadow.camera.near = 0.5;
+  dir.shadow.camera.far = 50;
+  dir.shadow.camera.left = -10;
+  dir.shadow.camera.right = 10;
+  dir.shadow.camera.top = 10;
+  dir.shadow.camera.bottom = -10;
+  scene.add(dir);
+
+  // Add ambient light for better bubble visibility
+  const ambient = new THREE.AmbientLight(0x404040, 0.6);
+  scene.add(ambient);
+
+  // Add point lights for dramatic bubble effects
+  const pointLight1 = new THREE.PointLight(0x00aaff, 0.8, 15);
+  pointLight1.position.set(-3, 3, 2);
+  scene.add(pointLight1);
+
+  const pointLight2 = new THREE.PointLight(0xff00aa, 0.6, 12);
+  pointLight2.position.set(3, 2, -2);
+  scene.add(pointLight2);
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x0a0a0a, 
+      roughness: 1,
+      metalness: 0.1
+    })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -1.25;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Add subtle fog for depth
+  scene.fog = new THREE.Fog(0x000000, 15, 50);
+
+  // Add floating background bubbles for atmosphere
+  const backgroundBubbles = new THREE.Group();
+  for (let i = 0; i < 20; i++) {
+    const bubbleSize = 0.1 + Math.random() * 0.3;
+    const bubbleMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(Math.random(), 0.3, 0.6),
+      transparent: true,
+      opacity: 0.3,
+      metalness: 0.8,
+      roughness: 0.1
+    });
+    const bubble = new THREE.Mesh(new THREE.SphereGeometry(bubbleSize, 16, 16), bubbleMat);
+    bubble.position.set(
+      (Math.random() - 0.5) * 40,
+      Math.random() * 20 - 5,
+      (Math.random() - 0.5) * 40
+    );
+    bubble.userData = { 
+      originalY: bubble.position.y,
+      speed: 0.01 + Math.random() * 0.02,
+      rotationSpeed: (Math.random() - 0.5) * 0.02
+    };
+    backgroundBubbles.add(bubble);
+  }
+  scene.add(backgroundBubbles);
+  
+  // Store background bubbles for animation
+  scene.userData.backgroundBubbles = backgroundBubbles;
+  
+  // Set THREE.js reference in monster factory
+  setThreeJS(THREE);
+  
+  // Also set global reference for monster factory fallback
+  window.THREE = THREE;
+  
+  // Create initial preview monsters
+  createPreviewMonsters();
+  
+  console.log('Three.js scene initialized successfully');
 }
-scene.add(backgroundBubbles);
 
-// Character factory (three distinct bubble breeds)
-const HASHIMA_COLORS = [0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa, 0xff6b35, 0x8e44ad, 0x16a085, 0xe74c3c];
+// Enhanced color palette for next-gen monsters
+const HASHIMA_COLORS = [
+  0x00aa55, 0x3d77ff, 0xff3d8e, 0xffb100, 0x9a6cff, 0x00d4aa, 0xff6b35, 0x8e44ad, 
+  0x16a085, 0xe74c3c, 0x9b59b6, 0x3498db, 0xe67e22, 0x2ecc71, 0xf1c40f, 0xe91e63
+];
 
-// Breed definitions with unique characteristics
-const BUBBLE_BREEDS = {
-  HUMAN: {
-    name: "Human",
-    description: "Balanced bubble creatures with human-like features",
-    bodyScale: { x: 1, y: 1.2, z: 0.9 },
-    coreScale: 0.65,
-    features: ['arms', 'legs', 'nose', 'mouth', 'particles'],
-    accessories: ['halo', 'horns', 'stripe'],
-    animationSpeed: 1.0
+// Next-generation monster types with complex designs
+const NEXT_GEN_MONSTERS = {
+  BUBBLE: {
+    name: "Classic Bubble",
+    description: "Traditional bubble creatures with balanced features",
+    style: "classic",
+    rarity: "common"
   },
-  CAT: {
-    name: "Cat",
-    description: "Agile bubble creatures with cat-like features",
-    bodyScale: { x: 0.9, y: 1.1, z: 0.8 },
-    coreScale: 0.6,
-    features: ['arms', 'legs', 'nose', 'mouth', 'particles', 'ears', 'tail'],
-    accessories: ['collar', 'whiskers', 'stripe'],
-    animationSpeed: 1.3
+  LOBSTER: {
+    name: "Lobster Claw",
+    description: "Aquatic monsters with powerful lobster hands and spiked tails",
+    style: "aquatic",
+    rarity: "rare"
   },
   DRAGON: {
-    name: "Dragon",
-    description: "Majestic bubble creatures with dragon-like features",
-    bodyScale: { x: 1.1, y: 1.3, z: 1.0 },
-    coreScale: 0.7,
-    features: ['arms', 'legs', 'nose', 'mouth', 'particles', 'wings', 'spikes'],
-    accessories: ['halo', 'horns', 'stripe', 'scales'],
-    animationSpeed: 0.8
+    name: "Dragon Lord",
+    description: "Majestic creatures with dragon wings and flowing tails",
+    style: "majestic",
+    rarity: "epic"
+  },
+  CAT: {
+    name: "Agile Cat",
+    description: "Swift creatures with feathered tails and cat-like grace",
+    style: "agile",
+    rarity: "uncommon"
+  },
+  ALIEN: {
+    name: "Alien Entity",
+    description: "Otherworldly beings with geometric bodies and bat wings",
+    style: "otherworldly",
+    rarity: "legendary"
+  },
+  ROBOT: {
+    name: "Mechanical Bot",
+    description: "Industrial robots with square bodies and scaled tails",
+    style: "mechanical",
+    rarity: "rare"
+  },
+  DEMON: {
+    name: "Dark Demon",
+    description: "Menacing creatures with demonic eyes and tattered wings",
+    style: "menacing",
+    rarity: "epic"
+  },
+  BUTTERFLY: {
+    name: "Ethereal Butterfly",
+    description: "Delicate beings with butterfly wings and feathered tails",
+    style: "delicate",
+    rarity: "uncommon"
+  },
+  CRYSTAL: {
+    name: "Crystal Guardian",
+    description: "Crystalline entities with geometric bodies and insect wings",
+    style: "crystalline",
+    rarity: "legendary"
+  },
+  GHOST: {
+    name: "Phantom Ghost",
+    description: "Ethereal spirits with organic bodies and angel wings",
+    style: "ethereal",
+    rarity: "mythic"
+  },
+  MECHANICAL: {
+    name: "Industrial Mech",
+    description: "Advanced machines with mechanical bodies and industrial design",
+    style: "industrial",
+    rarity: "epic"
+  },
+  BUG: {
+    name: "Chitinous Bug",
+    description: "Insectoid creatures with compound eyes and crystalline wings",
+    style: "chitinous",
+    rarity: "rare"
   }
 };
 
@@ -198,557 +476,58 @@ function seededRandom(seed) {
   };
 }
 
-function createBubbleHashima(color, breedType = 'HUMAN', seed = 1) {
-  const rand = seededRandom(seed);
-  const breed = BUBBLE_BREEDS[breedType];
-  const group = new THREE.Group();
 
-  // Enhanced body with breed-specific proportions
-  const bodyMat = new THREE.MeshStandardMaterial({ 
-    color, 
-    metalness: 0.3, 
-    roughness: 0.4,
-    transparent: true,
-    opacity: 0.9
-  });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 64, 64), bodyMat);
-  body.scale.set(breed.bodyScale.x, breed.bodyScale.y, breed.bodyScale.z);
-  body.castShadow = true;
-  body.receiveShadow = true;
-  group.add(body);
 
-  // Enhanced inner core with breed-specific sizing
-  const coreColor = new THREE.Color(color).offsetHSL(0, 0, 0.15);
-  const coreMat = new THREE.MeshStandardMaterial({ 
-    color: coreColor.getHex(), 
-    emissive: coreColor.getHex(), 
-    emissiveIntensity: 0.6, 
-    metalness: 0.2, 
-    roughness: 0.7,
-    transparent: true,
-    opacity: 0.8
-  });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(breed.coreScale, 48, 48), coreMat);
-  core.castShadow = false;
-  group.add(core);
 
-  // Enhanced eyes with breed-specific positioning
-  const eyeWhiteMat = new THREE.MeshStandardMaterial({ 
-    color: 0xffffff, 
-    roughness: 0.3,
-    metalness: 0.1
-  });
-  const eyeDarkMat = new THREE.MeshStandardMaterial({ 
-    color: 0x111111,
-    roughness: 0.1,
-    metalness: 0.2
-  });
-  const eyeHighlightMat = new THREE.MeshStandardMaterial({ 
-    color: 0xffffff, 
-    emissive: 0xffffff, 
-    emissiveIntensity: 0.3,
-    transparent: true,
-    opacity: 0.8
-  });
-  
-  const eyeWhiteGeo = new THREE.SphereGeometry(0.18, 24, 24);
-  const eyeDarkGeo = new THREE.SphereGeometry(0.08, 20, 20);
-  const eyeHighlightGeo = new THREE.SphereGeometry(0.04, 16, 16);
 
-  // Eye positioning varies by breed
-  const eyeOffset = breedType === 'CAT' ? 0.25 : 0.28;
-  const eyeHeight = breedType === 'DRAGON' ? 0.2 : 0.15;
 
-  // Left eye
-  const eL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
-  eL.position.set(-eyeOffset, eyeHeight, 0.78);
-  const eLi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
-  eLi.position.set(-eyeOffset, eyeHeight - 0.03, 0.92);
-  const eLh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
-  eLh.position.set(-eyeOffset - 0.04, eyeHeight + 0.03, 0.82);
-  
-  // Right eye
-  const eR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat); 
-  eR.position.set(eyeOffset, eyeHeight, 0.78);
-  const eRi = new THREE.Mesh(eyeDarkGeo, eyeDarkMat); 
-  eRi.position.set(eyeOffset, eyeHeight - 0.03, 0.92);
-  const eRh = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat); 
-  eRh.position.set(eyeOffset + 0.04, eyeHeight + 0.03, 0.82);
-  
-  for (const m of [eL, eLi, eLh, eR, eRi, eRh]) { 
-    m.castShadow = true; 
-    group.add(m); 
-  }
 
-  // Enhanced mouth with breed-specific expressions
-  const mouthMat = new THREE.MeshStandardMaterial({ 
-    color: 0x2a2a2a, 
-    roughness: 0.4,
-    metalness: 0.1
-  });
-  
-  let mouth;
-  if (breedType === 'CAT') {
-    // Cat mouth - smaller and more delicate
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 8, 24), mouthMat);
-    mouth.position.set(0, -0.06, 0.88);
-  } else if (breedType === 'DRAGON') {
-    // Dragon mouth - larger and more prominent
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 12, 32), mouthMat);
-    mouth.position.set(0, -0.1, 0.88);
-  } else {
-    // Human mouth - standard
-    mouth = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 12, 32), mouthMat);
-    mouth.position.set(0, -0.08, 0.88);
-  }
-  group.add(mouth);
 
-  // Nose with breed-specific styling
-  if (breed.features.includes('nose')) {
-    const noseMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, -0.1, 0.1).getHex(),
-      transparent: true,
-      opacity: 0.7
-    });
-    
-    let nose;
-    if (breedType === 'CAT') {
-      // Cat nose - small triangle-like
-      nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 8), noseMat);
-      nose.rotation.x = Math.PI / 2;
-      nose.position.set(0, 0.08, 0.92);
-    } else if (breedType === 'DRAGON') {
-      // Dragon nose - larger and more prominent
-      nose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), noseMat);
-      nose.position.set(0, 0.12, 0.9);
-    } else {
-      // Human nose - standard
-      nose = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 16), noseMat);
-      nose.position.set(0, 0.05, 0.9);
-    }
-    group.add(nose);
-  }
 
-  // Cat ears
-  if (breedType === 'CAT' && breed.features.includes('ears')) {
-    const earMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
-      transparent: true,
-      opacity: 0.8
-    });
-    
-    const leftEar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 8), earMat);
-    const rightEar = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 8), earMat);
-    
-    leftEar.position.set(-0.2, 0.8, 0.4);
-    leftEar.rotation.z = -0.3;
-    leftEar.rotation.x = -0.2;
-    
-    rightEar.position.set(0.2, 0.8, 0.4);
-    rightEar.rotation.z = 0.3;
-    rightEar.rotation.x = -0.2;
-    
-    leftEar.castShadow = true;
-    rightEar.castShadow = true;
-    group.add(leftEar, rightEar);
-  }
 
-  // Dragon wings
-  if (breedType === 'DRAGON' && breed.features.includes('wings')) {
-    const wingMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
-      transparent: true,
-      opacity: 0.7,
-      metalness: 0.4,
-      roughness: 0.3
-    });
-    
-    // Left wing
-    const leftWing = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.2, 8, 12), wingMat);
-    leftWing.position.set(-0.8, 0.3, 0.2);
-    leftWing.rotation.y = -0.8;
-    leftWing.rotation.z = 0.3;
-    
-    // Right wing
-    const rightWing = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.2, 8, 12), wingMat);
-    rightWing.position.set(0.8, 0.3, 0.2);
-    rightWing.rotation.y = 0.8;
-    rightWing.rotation.z = -0.3;
-    
-    leftWing.castShadow = true;
-    rightWing.castShadow = true;
-    group.add(leftWing, rightWing);
-  }
 
-  // Dragon spikes
-  if (breedType === 'DRAGON' && breed.features.includes('spikes')) {
-    const spikeMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
-      metalness: 0.6,
-      roughness: 0.2
-    });
-    
-    for (let i = 0; i < 5; i++) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.15, 8), spikeMat);
-      spike.position.set(0, 0.9 + i * 0.08, 0.3);
-      spike.castShadow = true;
-      group.add(spike);
-    }
-  }
 
-  // Cat tail
-  if (breedType === 'CAT' && breed.features.includes('tail')) {
-    const tailMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.05).getHex(),
-      transparent: true,
-      opacity: 0.8
-    });
-    
-    const tailSegments = 4;
-    for (let i = 0; i < tailSegments; i++) {
-      const segment = new THREE.Mesh(new THREE.SphereGeometry(0.08 - i * 0.01, 12, 12), tailMat);
-      segment.position.set(0.4 + i * 0.1, -0.3 - i * 0.1, 0.2);
-      segment.castShadow = true;
-      group.add(segment);
-    }
-    
-    // Tail tip
-    const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), tailMat);
-    tailTip.position.set(0.8, -0.7, 0.2);
-    tailTip.castShadow = true;
-    group.add(tailTip);
-  }
 
-  // Cat whiskers
-  if (breedType === 'CAT' && breed.accessories.includes('whiskers')) {
-    const whiskerMat = new THREE.MeshStandardMaterial({ 
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.6
-    });
-    
-    for (let i = 0; i < 3; i++) {
-      const leftWhisker = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.3, 4), whiskerMat);
-      const rightWhisker = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.3, 4), whiskerMat);
-      
-      leftWhisker.position.set(-0.3, 0.05 + i * 0.02, 0.85);
-      leftWhisker.rotation.z = -0.2 + i * 0.1;
-      
-      rightWhisker.position.set(0.3, 0.05 + i * 0.02, 0.85);
-      rightWhisker.rotation.z = 0.2 - i * 0.1;
-      
-      group.add(leftWhisker, rightWhisker);
-    }
-  }
 
-  // Cat collar
-  if (breedType === 'CAT' && breed.accessories.includes('collar')) {
-    const collarMat = new THREE.MeshStandardMaterial({ 
-      color: 0xff6b35,
-      metalness: 0.8,
-      roughness: 0.2
-    });
-    
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.04, 16, 64), collarMat);
-    collar.position.y = -0.1;
-    collar.rotation.x = Math.PI / 2;
-    group.add(collar);
-  }
 
-  // Dragon scales
-  if (breedType === 'DRAGON' && breed.accessories.includes('scales')) {
-    const scaleMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
-      metalness: 0.7,
-      roughness: 0.2
-    });
-    
-    for (let i = 0; i < 8; i++) {
-      for (let j = 0; j < 3; j++) {
-        const scale = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), scaleMat);
-        scale.position.set(
-          (i - 4) * 0.15,
-          -0.2 + j * 0.15,
-          0.95
-        );
-        scale.scale.set(1, 0.6, 0.8);
-        group.add(scale);
-      }
-    }
-  }
 
-  // Enhanced stripe patterns with breed-specific variety
-  let stripe = null;
-  if (rand() > 0.3) {
-    const stripeColor = new THREE.Color(color).offsetHSL(0.08, 0.15, 0.2);
-    const stripeMat = new THREE.MeshStandardMaterial({ 
-      color: stripeColor.getHex(), 
-      metalness: 0.3, 
-      roughness: 0.3,
-      emissive: stripeColor.getHex(),
-      emissiveIntensity: 0.1
-    });
-    
-    if (breedType === 'CAT') {
-      // Cat stripes - vertical and more numerous
-      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 16), stripeMat);
-      stripe.rotation.z = Math.PI / 2;
-      stripe.rotation.y = Math.PI * rand();
-      stripe.position.y = 0.1;
-    } else if (breedType === 'DRAGON') {
-      // Dragon stripes - diagonal and dramatic
-      stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 16), stripeMat);
-      stripe.rotation.z = Math.PI / 2;
-      stripe.rotation.y = Math.PI * 0.25 + rand() * 0.5;
-      stripe.position.y = 0.2;
-    } else {
-      // Human stripes - horizontal
-      if (rand() > 0.5) {
-        stripe = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.04, 16, 64), stripeMat);
-        stripe.rotation.x = Math.PI * (0.1 + rand() * 0.4);
-      } else {
-        stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 16), stripeMat);
-        stripe.rotation.z = Math.PI / 2;
-        stripe.rotation.y = Math.PI * rand();
-      }
-    }
-    group.add(stripe);
-  }
 
-  // Enhanced accessories with breed-specific variety
-  let halo = null; 
-  let horns = [];
-  let antennae = [];
-  
-  if (rand() > 0.6) {
-    // Enhanced halo with breed-specific styling
-    const haloMat = new THREE.MeshStandardMaterial({ 
-      color: 0xffee88, 
-      emissive: 0xffdd66, 
-      emissiveIntensity: 0.7,
-      metalness: 0.8,
-      roughness: 0.2
-    });
-    
-    if (breedType === 'DRAGON') {
-      // Dragon halo - larger and more dramatic
-      halo = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.04, 16, 64), haloMat);
-      halo.position.y = 1.0;
-    } else {
-      // Standard halo
-      halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 12, 64), haloMat);
-      halo.position.y = 0.8;
-    }
-    halo.rotation.x = Math.PI / 2;
-    group.add(halo);
-  } else if (rand() > 0.4) {
-    // Enhanced horns with breed-specific styling
-    const hornMat = new THREE.MeshStandardMaterial({ 
-      color: 0xffffff, 
-      roughness: 0.15, 
-      metalness: 0.3,
-      transparent: true,
-      opacity: 0.9
-    });
-    
-    if (breedType === 'DRAGON') {
-      // Dragon horns - larger and more dramatic
-      const hornGeo = new THREE.ConeGeometry(0.18, 0.4, 16);
-      const h1 = new THREE.Mesh(hornGeo, hornMat);
-      const h2 = new THREE.Mesh(hornGeo, hornMat);
-      h1.position.set(-0.35, 0.8, 0.4); 
-      h1.rotation.z = Math.PI * -0.15; 
-      h1.rotation.x = Math.PI * -0.3;
-      h2.position.set(0.35, 0.8, 0.4);  
-      h2.rotation.z = Math.PI * 0.15;  
-      h2.rotation.x = Math.PI * -0.3;
-      for (const h of [h1, h2]) { 
-        h.castShadow = true; 
-        group.add(h); 
-        horns.push(h); 
-      }
-    } else {
-      // Standard horns
-      const hornGeo = new THREE.ConeGeometry(0.14, 0.3, 16);
-      const h1 = new THREE.Mesh(hornGeo, hornMat);
-      const h2 = new THREE.Mesh(hornGeo, hornMat);
-      h1.position.set(-0.28, 0.6, 0.4); 
-      h1.rotation.z = Math.PI * -0.12; 
-      h1.rotation.x = Math.PI * -0.25;
-      h2.position.set(0.28, 0.6, 0.4);  
-      h2.rotation.z = Math.PI * 0.12;  
-      h2.rotation.x = Math.PI * -0.25;
-      for (const h of [h1, h2]) { 
-        h.castShadow = true; 
-        group.add(h); 
-        horns.push(h); 
-      }
-    }
-  } else if (rand() > 0.3 && breedType !== 'CAT') {
-    // Antennae (not for cats)
-    const antennaMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.1).getHex(),
-      metalness: 0.6,
-      roughness: 0.2
-    });
-    const antennaGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
-    const a1 = new THREE.Mesh(antennaGeo, antennaMat);
-    const a2 = new THREE.Mesh(antennaGeo, antennaMat);
-    a1.position.set(-0.2, 0.7, 0.3);
-    a1.rotation.z = Math.PI * -0.15;
-    a2.position.set(0.2, 0.7, 0.3);
-    a2.rotation.z = Math.PI * 0.15;
-    
-    // Antenna tips
-    const tipMat = new THREE.MeshStandardMaterial({ 
-      color: 0xffff00, 
-      emissive: 0xffff00, 
-      emissiveIntensity: 0.4
-    });
-    const tip1 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), tipMat);
-    const tip2 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), tipMat);
-    tip1.position.set(-0.25, 0.9, 0.25);
-    tip2.position.set(0.25, 0.9, 0.25);
-    
-    for (const item of [a1, a2, tip1, tip2]) {
-      item.castShadow = true;
-      group.add(item);
-    }
-    antennae = [a1, a2, tip1, tip2];
-  }
 
-  // Enhanced arms with breed-specific articulation
-  if (breed.features.includes('arms')) {
-    const arms = new THREE.Group();
-    const armMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, -0.08, 0.08).getHex(), 
-      roughness: 0.4,
-      metalness: 0.2,
-      transparent: true,
-      opacity: 0.8
-    });
-    
-    for (let i = 0; i < 2; i++) {
-      const side = i === 0 ? -1 : 1;
-      const s = 0.2 + rand() * 0.08;
-      
-      // Upper arm
-      const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.4, 12), armMat);
-      upperArm.position.set(side * 0.8, -0.1, 0.1);
-      upperArm.rotation.z = side * 0.3;
-      upperArm.castShadow = true;
-      arms.add(upperArm);
-      
-      // Lower arm
-      const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.35, 12), armMat);
-      lowerArm.position.set(side * 1.1, -0.3, 0.15);
-      lowerArm.rotation.z = side * 0.6;
-      lowerArm.castShadow = true;
-      arms.add(lowerArm);
-      
-      // Hand
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(s, 20, 20), armMat);
-      hand.position.set(side * 1.3, -0.45, 0.2);
-      hand.castShadow = true;
-      arms.add(hand);
-    }
-    group.add(arms);
-  }
 
-  // Legs with breed-specific styling
-  if (breed.features.includes('legs')) {
-    const legs = new THREE.Group();
-    const legMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, -0.1, 0.05).getHex(), 
-      roughness: 0.5,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.7
-    });
-    
-    for (let i = 0; i < 2; i++) {
-      const side = i === 0 ? -1 : 1;
-      
-      // Upper leg
-      const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.5, 12), legMat);
-      upperLeg.position.set(side * 0.3, -0.8, 0);
-      upperLeg.castShadow = true;
-      legs.add(upperLeg);
-      
-      // Lower leg
-      const lowerLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.4, 12), legMat);
-      lowerLeg.position.set(side * 0.3, -1.25, 0);
-      lowerLeg.castShadow = true;
-      legs.add(lowerLeg);
-      
-      // Foot
-      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), legMat);
-      foot.position.set(side * 0.3, -1.45, 0.1);
-      foot.scale.set(1, 0.6, 1.2);
-      foot.castShadow = true;
-      legs.add(foot);
-    }
-    group.add(legs);
-  }
 
-  // Floating particles around the Hashima
-  if (breed.features.includes('particles')) {
-    const particles = new THREE.Group();
-    const particleMat = new THREE.MeshStandardMaterial({ 
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.3).getHex(),
-      emissive: new THREE.Color(color).offsetHSL(0, 0, 0.2).getHex(),
-      emissiveIntensity: 0.6,
-      transparent: true,
-      opacity: 0.7
-    });
-    
-    const particleCount = breedType === 'DRAGON' ? 8 : 6;
-    for (let i = 0; i < particleCount; i++) {
-      const particle = new THREE.Mesh(new THREE.SphereGeometry(0.03 + rand() * 0.02, 8, 8), particleMat);
-      const angle = (i / particleCount) * Math.PI * 2;
-      const radius = 1.2 + rand() * 0.3;
-      particle.position.set(
-        Math.cos(angle) * radius,
-        -0.5 + rand() * 0.5,
-        Math.sin(angle) * radius
-      );
-      particles.add(particle);
-    }
-    group.add(particles);
-  }
 
-  // Store anim parts with breed information
-  group.userData = {
-    breed: breedType,
-    breedData: breed,
-    idle: { t: Math.random() * Math.PI * 2 },
-    blinkT: rand() * Math.PI * 2,
-    pupils: [eLi, eRi],
-    core,
-    halo,
-    stripe,
-    horns,
-    antennae,
-    arms: group.children.find(child => child.type === 'Group' && child.children.length >= 6),
-    legs: group.children.find(child => child.type === 'Group' && child.children.length >= 6 && child !== group.children.find(child => child.type === 'Group' && child.children.length >= 6)),
-    particles: group.children.find(child => child.type === 'Group' && child.children.length > 0 && child.children[0].geometry && child.children[0].geometry.type === 'SphereGeometry'),
-    originalScale: new THREE.Vector3(breed.bodyScale.x, breed.bodyScale.y, breed.bodyScale.z)
-  };
-  return group;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Game state
 const state = {
   scene: 'menu', // 'menu' | 'select' | 'game'
   p1Index: 0,
   p2Index: 1,
-  p1Breed: 'HUMAN',
+  p1Breed: 'BUBBLE',
   p2Breed: 'CAT',
   p1Health: 100,
   p2Health: 100,
   timer: 60,
   timerId: 0,
   gameRunning: false, // New flag to track if game is actually running
+  ready: false, // Flag to track if Three.js is fully initialized
   entities: {
     p1: null,
     p2: null
@@ -767,8 +546,10 @@ function showScreen(name) {
   }
   
   const on = (el, v) => { 
-    el.classList.toggle('visible', v); 
-    el.classList.toggle('hidden', !v); 
+    if (el) {
+      el.classList.toggle('visible', v); 
+      el.classList.toggle('hidden', !v); 
+    }
   };
   
   on(screenMenu, name === 'menu');
@@ -800,7 +581,7 @@ p2Prev.addEventListener('click', () => { state.p2Index = wrapIndex(state.p2Index
 p2Next.addEventListener('click', () => { state.p2Index = wrapIndex(state.p2Index + 1); refreshSelectPreview(); });
 p2Rand.addEventListener('click', () => { state.p2Index = Math.floor(Math.random() * HASHIMA_COLORS.length); refreshSelectPreview(); });
 
-// Breed selection handlers
+// Monster type selection handlers
 p1Breed.addEventListener('change', () => { 
   state.p1Breed = p1Breed.value; 
   refreshSelectPreview(); 
@@ -814,28 +595,61 @@ p2Breed.addEventListener('change', () => {
 btnBackMenu.addEventListener('click', () => { state.scene = 'menu'; showScreen('menu'); });
 btnStartGame.addEventListener('click', startGame);
 
-// Selection preview meshes
-const preview = {
-  p1: createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 101),
-  p2: createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 202)
+// Selection preview meshes using next-gen monster factory
+let preview = {
+  p1: null,
+  p2: null
 };
-preview.p1.position.set(-2.1, 0, 0);
-preview.p2.position.set(2.1, 0, 0);
-scene.add(preview.p1, preview.p2);
+
+function createPreviewMonsters() {
+  if (!THREE || !scene) {
+    console.log('Three.js or scene not ready for preview monsters');
+    return;
+  }
+  
+  try {
+    // Remove existing previews if they exist
+    if (preview.p1) scene.remove(preview.p1);
+    if (preview.p2) scene.remove(preview.p2);
+    
+    // Create new preview monsters
+    preview.p1 = createNextGenHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 101);
+    preview.p2 = createNextGenHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 202);
+    
+    if (preview.p1 && preview.p2) {
+      preview.p1.position.set(-2.1, 0, 0);
+      preview.p2.position.set(2.1, 0, 0);
+
+      // Initialize preview monsters
+      preview.p1.userData.originalScale = new THREE.Vector3(1, 1, 1);
+      preview.p2.userData.originalScale = new THREE.Vector3(1, 1, 1);
+      preview.p1.userData.originalScale.copy(preview.p1.scale);
+      preview.p2.userData.originalScale.copy(preview.p2.scale);
+
+      scene.add(preview.p1, preview.p2);
+      console.log('Preview monsters created successfully');
+    } else {
+      console.error('Failed to create preview monsters');
+    }
+  } catch (error) {
+    console.error('Error creating preview monsters:', error);
+  }
+}
 
 function refreshSelectPreview() {
-  // Replace materials/colors and breeds
-  scene.remove(preview.p1, preview.p2);
-  preview.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 101);
-  preview.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 202);
-  preview.p1.position.set(-2.1, 0, 0);
-  preview.p2.position.set(2.1, 0, 0);
-  scene.add(preview.p1, preview.p2);
+  if (!THREE || !scene) return;
+  createPreviewMonsters();
 }
 
 // Start the game scene
 function startGame() {
   console.log('Starting game...');
+  
+  // Ensure everything is ready
+  if (!state.ready || !THREE || !scene) {
+    console.error('Game not ready. Three.js:', !!THREE, 'Scene:', !!scene, 'Ready:', state.ready);
+    return;
+  }
   
   // Set game state
   state.scene = 'game';
@@ -865,11 +679,13 @@ function startGame() {
   });
   
   // Clear select previews
-  scene.remove(preview.p1, preview.p2);
+  if (scene && preview.p1 && preview.p2) {
+    scene.remove(preview.p1, preview.p2);
+  }
 
-  // Spawn players
-  state.entities.p1 = createBubbleHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 1111 + state.p1Index);
-  state.entities.p2 = createBubbleHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 2222 + state.p2Index);
+  // Spawn players using next-gen monster factory
+  state.entities.p1 = createNextGenHashima(HASHIMA_COLORS[state.p1Index], state.p1Breed, 1111 + state.p1Index);
+  state.entities.p2 = createNextGenHashima(HASHIMA_COLORS[state.p2Index], state.p2Breed, 2222 + state.p2Index);
   const p1 = state.entities.p1; 
   const p2 = state.entities.p2;
   
@@ -895,6 +711,18 @@ function startGame() {
   // Store original colors for shield effects
   p1.userData.originalColor = HASHIMA_COLORS[state.p1Index];
   p2.userData.originalColor = HASHIMA_COLORS[state.p2Index];
+  
+  // Ensure originalScale is properly set
+  if (!p1.userData.originalScale) {
+    p1.userData.originalScale = new THREE.Vector3(1, 1, 1);
+  }
+  if (!p2.userData.originalScale) {
+    p2.userData.originalScale = new THREE.Vector3(1, 1, 1);
+  }
+  
+  // Store original scale for animations
+  p1.userData.originalScale.copy(p1.scale);
+  p2.userData.originalScale.copy(p2.scale);
   
   scene.add(p1, p2);
 
@@ -1074,6 +902,57 @@ function updateStatusIndicators() {
   }
 }
 
+// Enhanced health display with better formatting
+function updateHealthDisplay() {
+  if (state.entities.p1 && state.entities.p2) {
+    // Ensure health is within bounds
+    state.p1Health = Math.max(0, Math.min(100, state.p1Health));
+    state.p2Health = Math.max(0, Math.min(100, state.p2Health));
+    
+    // Update health bars with smooth transitions
+    hudP1.style.width = state.p1Health + '%';
+    hudP2.style.width = state.p2Health + '%';
+    
+    // Add visual feedback for low health
+    if (state.p1Health < 25) {
+      hudP1.style.background = 'linear-gradient(90deg, #ff4444, #ff8888)';
+    } else if (state.p1Health < 50) {
+      hudP1.style.background = 'linear-gradient(90deg, #ffaa00, #ffdd44)';
+    } else {
+      hudP1.style.background = 'linear-gradient(90deg, #2d7efc, #5ff7ff)';
+    }
+    
+    if (state.p2Health < 25) {
+      hudP2.style.background = 'linear-gradient(90deg, #ff4444, #ff8888)';
+    } else if (state.p2Health < 50) {
+      hudP2.style.background = 'linear-gradient(90deg, #ffaa00, #ffdd44)';
+    } else {
+      hudP2.style.background = 'linear-gradient(90deg, #2d7efc, #5ff7ff)';
+    }
+  }
+}
+
+// Enhanced game validation
+function validateGameState() {
+  if (!state.entities.p1 || !state.entities.p2) {
+    console.error('Missing game entities');
+    return false;
+  }
+  
+  if (isNaN(state.p1Health) || isNaN(state.p2Health)) {
+    console.error('Invalid health values:', state.p1Health, state.p2Health);
+    return false;
+  }
+  
+  if (state.p1Health < 0 || state.p2Health < 0) {
+    console.error('Negative health detected');
+    state.p1Health = Math.max(0, state.p1Health);
+    state.p2Health = Math.max(0, state.p2Health);
+  }
+  
+  return true;
+}
+
 // Enhanced attack system with better frame data
 function updateAttackAndDamage(attacker, defender){
   const atk = attacker.userData.attack;
@@ -1197,6 +1076,13 @@ function updateAttackAndDamage(attacker, defender){
         // Debug: Log health after damage
         console.log('Health after attack:', state.p1Health, state.p2Health);
         
+        // Ensure health bars are properly updated
+        if (defender === state.entities.p2) {
+          hudP2.style.width = Math.max(0, state.p2Health) + '%';
+        } else {
+          hudP1.style.width = Math.max(0, state.p1Health) + '%';
+        }
+        
         // Apply hitstun and knockback
         defender.userData.hitstun = HITSTUN_FRAMES;
         const dir = Math.sign(defender.position.x - attacker.position.x) || 1;
@@ -1226,6 +1112,23 @@ function updateAttackAndDamage(attacker, defender){
             particle.material.emissiveIntensity = 1.0;
             particle.material.color.setHex(0xffffff);
           }
+        }
+        
+        // Add damage flash effect to health bar
+        if (defender === state.entities.p2) {
+          hudP2.classList.add('damaged');
+          setTimeout(() => hudP2.classList.remove('damaged'), 300);
+        } else {
+          hudP1.classList.add('damaged');
+          setTimeout(() => hudP1.classList.remove('damaged'), 300);
+        }
+        
+        // Create hit particles
+        createHitParticles(defender.position);
+        
+        // Screen shake for powerful attacks
+        if (damage > 8) {
+          createScreenShake(3);
         }
         
         // Increment move staling
@@ -1333,6 +1236,11 @@ function updateGame(dt){
     return;
   }
   
+  // Ensure scene is properly initialized
+  if (!scene || !state.entities.p1 || !state.entities.p2) {
+    return;
+  }
+  
   const p1 = state.entities.p1;
   const p2 = state.entities.p2;
   
@@ -1384,6 +1292,9 @@ function updateGame(dt){
     if(inputs.keys.has('e') && p1.userData.grounded) {
       beginRoll(p1, p1.userData.facing);
     }
+    
+    // Special moves
+    handleSpecialInputs(p1, true);
   }
   
   // Player 2 controls (Arrow Keys + Enter/R/T/Y + F/G)
@@ -1420,6 +1331,9 @@ function updateGame(dt){
     if(inputs.keys.has('KeyG') && p2.userData.grounded) {
       beginRoll(p2, p2.userData.facing);
     }
+    
+    // Special moves
+    handleSpecialInputs(p2, false);
   }
   
   // Apply speed limits
@@ -1465,10 +1379,16 @@ function updateGame(dt){
   
   // Update status indicators
   updateStatusIndicators();
+  updateHealthDisplay(); // Call the new health display function
+  
+  // Validate game state
+  if (!validateGameState()) {
+    console.warn('Game state validation failed, attempting recovery...');
+  }
 
-  // Apply physics
-  applyPhysics(p1); 
-  applyPhysics(p2);
+  // Apply enhanced physics
+  applyEnhancedPhysics(p1); 
+  applyEnhancedPhysics(p2);
   
   // Check for game end - ONLY if game is running and health is actually 0
   if (state.gameRunning && (state.p1Health <= 0 || state.p2Health <= 0)) {
@@ -1541,9 +1461,8 @@ window.addEventListener('resize', onResize);
 function animateIdle(node, time) {
   if (!node || !node.userData) return;
   const breed = node.userData.breed;
-  const breedData = node.userData.breedData;
   
-  node.userData.idle.t += 0.02 * (breedData?.animationSpeed || 1.0);
+  node.userData.idle.t += 0.02 * (node.userData.animationSpeed || 1.0);
   const t = node.userData.idle.t + time * 0.001;
   node.position.y = Math.sin(t * 2) * 0.06;
   node.rotation.y += 0.004;
@@ -1729,6 +1648,217 @@ function animateIdle(node, time) {
   node.scale.z = node.userData.originalScale.z + breath;
 }
 
+// Enhanced monster animations with special effects
+function animateMonsterSpecialEffects(entity, time) {
+  if (!entity.userData) return;
+  
+  const breed = entity.userData.breed;
+  const t = time * 0.001;
+  
+  // Special breed-specific effects
+  if (breed === 'DRAGON') {
+    // Dragon fire breath effect
+    if (entity.userData.particles) {
+      const particleChildren = entity.userData.particles.children;
+      for (let i = 0; i < particleChildren.length; i++) {
+        const particle = particleChildren[i];
+        const fireIntensity = 0.6 + Math.sin(t * 3 + i) * 0.4;
+        particle.material.emissiveIntensity = fireIntensity;
+        particle.material.color.setHSL(0.05 + Math.sin(t * 2 + i) * 0.05, 0.8, 0.5);
+      }
+    }
+  } else if (breed === 'GHOST') {
+    // Ghost ethereal effect
+    if (entity.userData.core) {
+      const ethereal = 0.6 + Math.sin(t * 1.5) * 0.2;
+      entity.userData.core.material.opacity = ethereal;
+      entity.userData.core.material.emissiveIntensity = ethereal;
+    }
+  } else if (breed === 'CRYSTAL') {
+    // Crystal shimmer effect
+    if (entity.userData.particles) {
+      const particleChildren = entity.userData.particles.children;
+      for (let i = 0; i < particleChildren.length; i++) {
+        const particle = particleChildren[i];
+        const shimmer = Math.sin(t * 2 + i * 0.3) * 0.3;
+        particle.material.emissiveIntensity = 0.7 + shimmer;
+        particle.rotation.y += 0.02;
+      }
+    }
+  }
+}
+
+// Special move system
+function executeSpecialMove(entity, moveType) {
+  if (!entity.userData || entity.userData.hitstun > 0) return;
+  
+  const breed = entity.userData.breed;
+  
+  switch (moveType) {
+    case 'SPECIAL_NEUTRAL':
+      if (breed === 'DRAGON') {
+        // Dragon fire breath
+        entity.userData.vx += entity.userData.facing * 0.3;
+        entity.userData.vy += 0.2;
+        createScreenShake(2);
+      } else if (breed === 'GHOST') {
+        // Ghost teleport
+        entity.position.x += entity.userData.facing * 2;
+        entity.userData.invincible = true;
+        entity.userData.invincibilityFrames = 10;
+      }
+      break;
+      
+    case 'SPECIAL_SIDE':
+      if (breed === 'CAT') {
+        // Cat dash attack
+        entity.userData.vx = entity.userData.facing * HORIZ_SPEED * 1.5;
+        entity.userData.dashing = true;
+      }
+      break;
+      
+    case 'SPECIAL_UP':
+      if (breed === 'BUTTERFLY') {
+        // Butterfly double jump
+        entity.userData.vy = JUMP_VELOCITY * 1.3;
+      }
+      break;
+  }
+}
+
+// Enhanced input handling with special moves
+function handleSpecialInputs(entity, isPlayer1) {
+  if (entity.userData.hitstun > 0) return;
+  
+  if (isPlayer1) {
+    // Player 1 special moves (WASD + Q/E)
+    if (inputs.keys.has('q') && inputs.keys.has(' ')) {
+      executeSpecialMove(entity, 'SPECIAL_NEUTRAL');
+    }
+    if (inputs.keys.has('e') && inputs.keys.has('Shift')) {
+      executeSpecialMove(entity, 'SPECIAL_SIDE');
+    }
+    if (inputs.keys.has('q') && inputs.keys.has('Control')) {
+      executeSpecialMove(entity, 'SPECIAL_UP');
+    }
+  } else {
+    // Player 2 special moves (Arrow Keys + Enter/R/T/Y + F/G)
+    if (inputs.keys.has('KeyF') && inputs.keys.has('Enter')) {
+      executeSpecialMove(entity, 'SPECIAL_NEUTRAL');
+    }
+    if (inputs.keys.has('KeyG') && inputs.keys.has('KeyR')) {
+      executeSpecialMove(entity, 'SPECIAL_SIDE');
+    }
+    if (inputs.keys.has('KeyF') && inputs.keys.has('KeyT')) {
+      executeSpecialMove(entity, 'SPECIAL_UP');
+    }
+  }
+}
+
+// Game balance improvements
+const GAME_BALANCE = {
+  COMBO_DAMAGE_MULTIPLIER: 0.15, // 15% damage increase per combo hit
+  PERFECT_SHIELD_REWARD: 0.8, // 80% damage reduction on perfect shield
+  ROLL_INVINCIBILITY_FRAMES: 15,
+  SHIELD_DRAIN_RATE: 0.5, // Shield depletes faster
+  AIR_ATTACK_DAMAGE_PENALTY: 0.8, // Air attacks do 80% damage
+  FAST_FALL_SPEED_MULTIPLIER: 1.8, // Faster falling
+  LANDING_LAG_FRAMES: 6, // More landing lag for balance
+  KNOCKBACK_SCALING: 0.15 // Knockback increases with damage
+};
+
+// Enhanced shield mechanics
+function updateShieldMechanics(entity) {
+  if (entity.userData.shielding) {
+    // Shield drain over time
+    entity.userData.shieldHealth = (entity.userData.shieldHealth || 100) - GAME_BALANCE.SHIELD_DRAIN_RATE;
+    
+    if (entity.userData.shieldHealth <= 0) {
+      // Shield break!
+      entity.userData.shielding = false;
+      entity.userData.shieldBroken = true;
+      entity.userData.shieldBrokenFrames = 60; // 1 second of vulnerability
+      
+      // Visual feedback
+      if (entity.userData.core) {
+        entity.userData.core.material.emissiveIntensity = 0;
+        entity.userData.core.material.color.setHex(0xff0000);
+      }
+      
+      // Screen shake for shield break
+      createScreenShake(5);
+    }
+  } else if (entity.userData.shieldBroken) {
+    entity.userData.shieldBrokenFrames--;
+    if (entity.userData.shieldBrokenFrames <= 0) {
+      entity.userData.shieldBroken = false;
+      entity.userData.shieldHealth = 100;
+      
+      // Restore visual appearance
+      if (entity.userData.core) {
+        entity.userData.core.material.emissiveIntensity = 0.6;
+        entity.userData.core.material.color.setHex(entity.userData.originalColor || 0xffffff);
+      }
+    }
+  }
+}
+
+// Enhanced combo system
+function updateComboSystem(entity) {
+  if (entity.userData.combo && entity.userData.combo.timer > 0) {
+    entity.userData.combo.timer--;
+    
+    // Combo window expires
+    if (entity.userData.combo.timer <= 0) {
+      entity.userData.combo.count = 0;
+      entity.userData.combo.lastAttack = null;
+    }
+  }
+}
+
+// Enhanced movement physics
+function applyEnhancedPhysics(entity) {
+  // Apply gravity and movement
+  entity.userData.vy = Math.max(MAX_FALL_SPEED, entity.userData.vy + GRAVITY*(1/60));
+  entity.position.y += entity.userData.vy;
+  
+  // Ground collision
+  const bodyBottom = entity.position.y - entity.userData.originalScale.y * 0.9 + 0.1;
+  if (bodyBottom <= GROUND_Y - 1.25){ 
+    entity.position.y = -1.25 + entity.userData.originalScale.y * 0.9 - 0.1; 
+    entity.userData.vy = 0; 
+    entity.userData.grounded = true;
+    
+    // Enhanced landing lag
+    if (entity.userData.vy < -0.3) {
+      entity.userData.landingLag = GAME_BALANCE.LANDING_LAG_FRAMES;
+    }
+  } else { 
+    entity.userData.grounded = false; 
+  }
+  
+  // Horizontal movement with momentum
+  entity.position.x += entity.userData.vx;
+  entity.position.x = clamp(entity.position.x, -ARENA_HALF_WIDTH, ARENA_HALF_WIDTH);
+  
+  // Apply friction (less friction when rolling)
+  if (!entity.userData.rolling) {
+    entity.userData.vx *= HORIZ_FRICTION;
+  }
+  
+  // Handle landing lag
+  if (entity.userData.landingLag > 0) {
+    entity.userData.landingLag--;
+    entity.userData.vx *= 0.5; // Reduced movement during landing lag
+  }
+  
+  // Update shield mechanics
+  updateShieldMechanics(entity);
+  
+  // Update combo system
+  updateComboSystem(entity);
+}
+
 // Main loop
 let last = performance.now();
 function tick(now) {
@@ -1737,142 +1867,171 @@ function tick(now) {
   last = now; 
   const dt = Math.min(3.0, dtMs / 16.6667);
 
-  controls.update();
+  try {
+    if (controls) {
+      controls.update();
+    }
 
-  // Update selection previews idle motion when in select scene
-  if (state.scene === 'select') {
-    if (preview.p1) animateIdle(preview.p1, now);
-    if (preview.p2) animateIdle(preview.p2, now);
+    // Update selection previews idle motion when in select scene
+    if (state.scene === 'select' && preview && preview.p1 && preview.p2) {
+      if (preview.p1 && preview.p1.userData) animateIdle(preview.p1, now);
+      if (preview.p2 && preview.p2.userData) animateIdle(preview.p2, now);
+    }
+
+    // Update game entities idle animation when in game scene
+    if (state.scene === 'game' && state.gameRunning) {
+      if (state.entities.p1 && state.entities.p1.userData) {
+        animateIdle(state.entities.p1, now);
+        animateMonsterSpecialEffects(state.entities.p1, now);
+      }
+      if (state.entities.p2 && state.entities.p2.userData) {
+        animateIdle(state.entities.p2, now);
+        animateMonsterSpecialEffects(state.entities.p2, now);
+      }
+    }
+
+    // Update game logic
+    updateGame(dt);
+    
+    // Only render if scene is properly initialized
+    if (scene && camera && renderer) {
+      // Update camera effects
+      updateCameraEffects();
+      
+      // Animate background bubbles
+      animateBackgroundBubbles();
+      
+      // Update performance metrics
+      updatePerformanceMetrics();
+
+      renderer.render(scene, camera);
+    }
+  } catch (error) {
+    console.error('Error in game loop:', error);
+    // Try to recover gracefully
+    if (state.scene === 'game' && !state.gameRunning) {
+      console.log('Attempting to restart game...');
+      try {
+        startGame();
+      } catch (restartError) {
+        console.error('Failed to restart game:', restartError);
+        attemptGameRecovery();
+      }
+    } else {
+      // For other errors, attempt recovery
+      attemptGameRecovery();
+    }
   }
-
-  // Update game entities idle animation when in game scene
-  if (state.scene === 'game' && state.gameRunning) {
-    if (state.entities.p1) animateIdle(state.entities.p1, now);
-    if (state.entities.p2) animateIdle(state.entities.p2, now);
-  }
-
-  // Update game logic
-  updateGame(dt);
-
-  renderer.render(scene, camera);
 }
 
 // Start the animation loop immediately
 tick(performance.now());
 
-// Attack system - Smash Bros style
-const ATTACK_TYPES = {
-  NEUTRAL: { 
-    name: 'Neutral', 
-    damage: 6, 
-    knockback: 0.6, 
-    startup: 3, 
-    active: 4, 
-    endlag: 8, 
-    range: 1.0,
-    description: 'Quick jab, low knockback'
-  },
-  SIDE: { 
-    name: 'Side', 
-    damage: 12, 
-    knockback: 1.2, 
-    startup: 6, 
-    active: 8, 
-    endlag: 16, 
-    range: 1.6,
-    description: 'Forward strike, good knockback'
-  },
-  UP: { 
-    name: 'Up', 
-    damage: 10, 
-    knockback: 1.0, 
-    startup: 5, 
-    active: 7, 
-    endlag: 14, 
-    range: 1.4,
-    description: 'Upward strike, vertical knockback'
-  },
-  DOWN: { 
-    name: 'Down', 
-    damage: 16, 
-    knockback: 1.5, 
-    startup: 10, 
-    active: 12, 
-    endlag: 24, 
-    range: 1.2,
-    description: 'Powerful downward strike, high knockback'
-  }
-};
-
-// Gameplay constants - Smash Bros style
-
-// Enhanced fighting mechanics (constants defined at top of file)
-
-// Combo system
-function addCombo(entity, attackType) {
-  if (!entity.userData.combo) entity.userData.combo = { count: 0, lastAttack: null, timer: 0 };
-  
-  if (entity.userData.combo.lastAttack === attackType && entity.userData.combo.timer < COMBO_WINDOW) {
-    entity.userData.combo.count++;
-    entity.userData.combo.timer = 0;
-  } else {
-    entity.userData.combo.count = 1;
-    entity.userData.combo.timer = 0;
+// Initialize the app
+async function initializeApp() {
+  // Load Three.js first
+  const threeLoaded = await loadThreeJS();
+  if (!threeLoaded) {
+    console.error('Failed to load Three.js. Game cannot start.');
+    document.body.innerHTML = '<div style="color: white; text-align: center; padding: 50px; font-family: Arial, sans-serif;"><h1>Error Loading Game</h1><p>Failed to load Three.js library. Please check your internet connection and refresh the page.</p></div>';
+    return;
   }
   
-  entity.userData.combo.lastAttack = attackType;
+  // Initialize Three.js scene
+  initializeThreeJSScene();
+  
+  // Wait a bit for everything to settle
+  setTimeout(() => {
+    // CRITICAL: Ensure no result elements are visible on startup
+    const allResults = document.querySelectorAll('.result, .overlay');
+    allResults.forEach(el => {
+      el.classList.add('hidden');
+    });
+    
+    // Ensure we start on menu screen
+    state.scene = 'menu';
+    state.gameRunning = false;
+    
+    // Initialize game state
+    state.p1Health = 100;
+    state.p2Health = 100;
+    state.timer = 60;
+    
+    // Reset HUD
+    if (hudP1) hudP1.style.width = '100%';
+    if (hudP2) hudP2.style.width = '100%';
+    if (hudTimer) hudTimer.textContent = '60';
+    
+    // Show menu screen
+    showScreen('menu');
+    
+    // Add some ambient particles to the scene
+    createAmbientParticles();
+    
+    // Mark as ready
+    state.ready = true;
+    
+    console.log('Hashima Smash game initialized successfully!');
+  }, 100);
 }
 
-// Perfect shield system
-function checkPerfectShield(entity) {
-  if (entity.userData.shielding && entity.userData.shieldFrames >= SHIELD_FRAMES - PERFECT_SHIELD_FRAMES) {
-    entity.userData.perfectShield = true;
-    entity.userData.perfectShieldFrames = 5;
-    // Visual feedback for perfect shield
-    if (entity.userData.core) {
-      entity.userData.core.material.emissiveIntensity = 1.2;
-      entity.userData.core.material.color.setHex(0x00ffff);
+// Create ambient particles for atmosphere
+function createAmbientParticles() {
+  const particleCount = 15;
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.left = Math.random() * window.innerWidth + 'px';
+    particle.style.top = Math.random() * window.innerHeight + 'px';
+    particle.style.animationDelay = Math.random() * 3 + 's';
+    particle.style.animationDuration = (2 + Math.random() * 2) + 's';
+    document.body.appendChild(particle);
+  }
+}
+
+// Enhanced error recovery
+function attemptGameRecovery() {
+  console.log('Attempting game recovery...');
+  
+  try {
+    // Clean up any existing game state
+    cleanupGameEntities();
+    
+    // Reset game state
+    state.p1Health = 100;
+    state.p2Health = 100;
+    state.timer = 60;
+    state.gameRunning = false;
+    
+    // Return to menu
+    state.scene = 'menu';
+    showScreen('menu');
+    
+    console.log('Game recovery successful');
+  } catch (error) {
+    console.error('Game recovery failed:', error);
+    // Last resort - reload the page
+    if (confirm('Game recovery failed. Would you like to reload the page?')) {
+      window.location.reload();
     }
   }
 }
 
-// Air attack system
-function isAirAttack(entity) {
-  return !entity.userData.grounded;
-}
-
-// Enhanced movement options
-function addMovementOptions(entity) {
-  // Dash attack (running + attack)
-  if (Math.abs(entity.userData.vx) > HORIZ_SPEED * 0.8 && entity.userData.grounded) {
-    entity.userData.dashing = true;
-  } else {
-    entity.userData.dashing = false;
+// Performance monitoring
+let frameCount = 0;
+let lastFpsTime = performance.now();
+function updatePerformanceMetrics() {
+  frameCount++;
+  const now = performance.now();
+  
+  if (now - lastFpsTime >= 1000) {
+    const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+    if (fps < 30) {
+      console.warn('Low FPS detected:', fps);
+    }
+    frameCount = 0;
+    lastFpsTime = now;
   }
-  
-  // Crouch (hold down while grounded)
-  if (entity.userData.grounded && entity.userData.vy < 0) {
-    entity.userData.crouching = true;
-    entity.scale.y = entity.userData.originalScale.y * 0.8;
-  } else {
-    entity.userData.crouching = false;
-  }
-}
-
-// Initialize the app
-function initializeApp() {
-  // CRITICAL: Ensure no result elements are visible on startup
-  const allResults = document.querySelectorAll('.result, .overlay');
-  allResults.forEach(el => {
-    el.classList.add('hidden');
-  });
-  
-  // Ensure we start on menu screen
-  state.scene = 'menu';
-  state.gameRunning = false;
-  
-  // Show menu screen
-  showScreen('menu');
 }
 
 // Start the app when page loads

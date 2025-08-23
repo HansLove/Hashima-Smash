@@ -19,8 +19,8 @@
 <!-- Main Menu Screen -->
 <div id="menu-screen" class="screen visible">
     <div class="menu-inner">
-        <h1 class="title">Hashima: Color Bubbles</h1>
-        <p class="subtitle">Magical bubble creatures with human-like features</p>
+        <h1 class="title">Hashima: Next-Gen Monsters</h1>
+        <p class="subtitle">Advanced color-bubble monsters with complex designs</p>
         <button id="btn-play" class="btn primary">Play</button>
         <button id="btn-howto" class="btn">How to Play</button>
     </div>
@@ -60,11 +60,20 @@
         <div class="select-panel">
             <h2>Player 1</h2>
             <div class="breed-selector">
-                <label>Breed:</label>
+                <label>Monster Type:</label>
                 <select id="p1-breed" class="breed-select">
-                    <option value="HUMAN">Human</option>
-                    <option value="CAT">Cat</option>
-                    <option value="DRAGON">Dragon</option>
+                    <option value="BUBBLE">Classic Bubble</option>
+                    <option value="LOBSTER">Lobster Claw</option>
+                    <option value="DRAGON">Dragon Lord</option>
+                    <option value="CAT">Agile Cat</option>
+                    <option value="ALIEN">Alien Entity</option>
+                    <option value="ROBOT">Mechanical Bot</option>
+                    <option value="DEMON">Dark Demon</option>
+                    <option value="BUTTERFLY">Ethereal Butterfly</option>
+                    <option value="CRYSTAL">Crystal Guardian</option>
+                    <option value="GHOST">Phantom Ghost</option>
+                    <option value="MECHANICAL">Industrial Mech</option>
+                    <option value="BUG">Chitinous Bug</option>
                 </select>
             </div>
             <div class="controls">
@@ -76,11 +85,20 @@
         <div class="select-panel">
             <h2>Player 2</h2>
             <div class="breed-selector">
-                <label>Breed:</label>
+                <label>Monster Type:</label>
                 <select id="p2-breed" class="breed-select">
-                    <option value="HUMAN">Human</option>
-                    <option value="CAT" selected>Cat</option>
-                    <option value="DRAGON">Dragon</option>
+                    <option value="BUBBLE">Classic Bubble</option>
+                    <option value="LOBSTER">Lobster Claw</option>
+                    <option value="DRAGON">Dragon Lord</option>
+                    <option value="CAT" selected>Agile Cat</option>
+                    <option value="ALIEN">Alien Entity</option>
+                    <option value="ROBOT">Mechanical Bot</option>
+                    <option value="DEMON">Dark Demon</option>
+                    <option value="BUTTERFLY">Ethereal Butterfly</option>
+                    <option value="CRYSTAL">Crystal Guardian</option>
+                    <option value="GHOST">Phantom Ghost</option>
+                    <option value="MECHANICAL">Industrial Mech</option>
+                    <option value="BUG">Chitinous Bug</option>
                 </select>
             </div>
             <div class="controls">
@@ -126,9 +144,7 @@
     </div>
 </div>
 
-<!-- Pin to a version that exposes non-module OrbitControls on the global THREE namespace -->
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="./js/app.js"></script>
+<!-- Use ES6 modules for Three.js -->
+<script type="module" src="./js/app.js"></script>
 <link rel="stylesheet" href="./style/style_1.css">
 </body>

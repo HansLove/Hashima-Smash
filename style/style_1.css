@@ -1,5 +1,6 @@
 body{
     background: black;
+    overflow: hidden;
 }
 
 /* Ensure the 2D canvas and UI render above the 3D scene */
@@ -28,9 +29,9 @@ body{
 }
 
 .btn{ padding: 10px 18px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; border-radius: 8px; transition: all .15s ease; }
-.btn:hover{ background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+.btn:hover{ background: rgba(255,255,255,0.18); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 .btn.primary{ background: linear-gradient(135deg, #00aa55, #00dd88); border: none; }
-.btn.primary:hover{ filter: brightness(1.05); }
+.btn.primary:hover{ filter: brightness(1.05); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,170,85,0.4); }
 
 .modal{ position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
 .modal.hidden{ display: none; }
@@ -57,9 +58,9 @@ body{
 #game-screen .hud{ position: absolute; top: 12px; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; padding: 0 16px; }
 .bar{ position: relative; height: 20px; }
 .bar-bg{ position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06)); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; }
-.bar-fg{ position: absolute; inset: 2px; width: 100%; background: linear-gradient(90deg, #2d7efc, #5ff7ff); border-radius: 8px; }
+.bar-fg{ position: absolute; inset: 2px; width: 100%; background: linear-gradient(90deg, #2d7efc, #5ff7ff); border-radius: 8px; transition: width 0.3s ease; }
 .timer{ width: 72px; text-align: center; font-weight: 800; letter-spacing: 2px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 0; }
-.result{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; text-shadow: 0 6px 32px rgba(0,0,0,0.7); }
+.result{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 56px; text-shadow: 0 6px 32px rgba(0,0,0,0.7); animation: resultPulse 2s ease-in-out infinite; }
 .overlay{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; }
 .overlay.hidden{ display: none; }
 .overlay .panel{ background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.12); padding: 20px 24px; border-radius: 12px; backdrop-filter: blur(6px); display: flex; flex-direction: column; gap: 12px; align-items: center; }
@@ -67,18 +68,48 @@ body{
 .overlay .panel .actions{ display: flex; gap: 12px; }
 .overlay .panel .hint{ opacity: 0.7; font-size: 12px; }
 
-.status-indicator{ position: absolute; top: 35px; font-size: 12px; text-align: center; opacity: 0.8; }
-.status-indicator.shield{ color: #00aaff; }
-.status-indicator.roll{ color: #ffaa00; }
-.status-indicator.invincible{ color: #ffff00; animation: pulse 0.5s ease-in-out infinite; }
-.status-indicator.perfect-shield{ color: #00ffff; font-weight: bold; animation: perfectShield 0.3s ease-in-out infinite; }
-.status-indicator.combo{ color: #ff00ff; font-weight: bold; animation: combo 0.2s ease-in-out infinite; }
-.status-indicator.air-attack{ color: #00ff88; }
-.status-indicator.dashing{ color: #ff8800; }
+@keyframes resultPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.status-indicator{ position: absolute; top: 35px; font-size: 12px; text-align: center; opacity: 0.8; transition: all 0.2s ease; }
+.status-indicator.shield{ color: #00aaff; text-shadow: 0 0 8px rgba(0,170,255,0.6); }
+.status-indicator.roll{ color: #ffaa00; text-shadow: 0 0 8px rgba(255,170,0,0.6); }
+.status-indicator.invincible{ color: #ffff00; animation: pulse 0.5s ease-in-out infinite; text-shadow: 0 0 12px rgba(255,255,0,0.8); }
+.status-indicator.perfect-shield{ color: #00ffff; font-weight: bold; animation: perfectShield 0.3s ease-in-out infinite; text-shadow: 0 0 15px rgba(0,255,255,0.8); }
+.status-indicator.combo{ color: #ff00ff; font-weight: bold; animation: combo 0.2s ease-in-out infinite; text-shadow: 0 0 10px rgba(255,0,255,0.6); }
+.status-indicator.air-attack{ color: #00ff88; text-shadow: 0 0 8px rgba(0,255,136,0.6); }
+.status-indicator.dashing{ color: #ff8800; text-shadow: 0 0 8px rgba(255,136,0,0.6); }
 .status-indicator.crouching{ color: #888888; }
-.status-indicator.hitstun{ color: #ff0000; animation: hitstun 0.1s ease-in-out infinite; }
-.status-indicator.landing{ color: #8800ff; }
+.status-indicator.hitstun{ color: #ff0000; animation: hitstun 0.1s ease-in-out infinite; text-shadow: 0 0 10px rgba(255,0,0,0.6); }
+.status-indicator.landing{ color: #8800ff; text-shadow: 0 0 8px rgba(136,0,255,0.6); }
 
 @keyframes perfectShield{ 0%, 100% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
 @keyframes combo{ 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
 @keyframes hitstun{ 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+@keyframes pulse{ 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+
+/* Enhanced visual effects */
+.bar-fg.damaged{ background: linear-gradient(90deg, #ff4444, #ff8888); animation: damageFlash 0.3s ease-in-out; }
+@keyframes damageFlash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.3) saturate(1.5); }
+}
+
+/* Particle effects for UI */
+.particle{ position: absolute; width: 4px; height: 4px; background: #5ff7ff; border-radius: 50%; pointer-events: none; animation: particleFloat 3s ease-in-out infinite; }
+@keyframes particleFloat {
+  0% { transform: translateY(0) scale(0); opacity: 0; }
+  20% { opacity: 1; transform: translateY(-20px) scale(1); }
+  80% { opacity: 1; transform: translateY(-40px) scale(0.8); }
+  100% { transform: translateY(-60px) scale(0); opacity: 0; }
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  #menu-screen .title { font-size: 36px; }
+  #select-screen .select-grid { grid-template-columns: 1fr; gap: 16px; }
+  .controls-scheme { grid-template-columns: 1fr; }
+  .btn { padding: 12px 20px; font-size: 16px; }
+}
