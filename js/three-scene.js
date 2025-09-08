@@ -101,6 +101,9 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
   const eyeIrisGeo = new THREE.SphereGeometry(type.irisSize, 20, 20);
   const eyeHighlightGeo = new THREE.SphereGeometry(type.highlightSize, 16, 16);
   
+  // Create eye group for proper positioning
+  const eyeGroup = new THREE.Group();
+  
   // Left eye
   const eyeLeft = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
   eyeLeft.position.set(-0.22, 0.35, 0.7);
@@ -116,6 +119,9 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
   eyeRightIris.position.set(0.22, 0.33, 0.84);
   const eyeRightHighlight = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat);
   eyeRightHighlight.position.set(0.22, 0.33, 0.82);
+  
+  // Add eyes to group
+  eyeGroup.add(eyeLeft, eyeLeftIris, eyeLeftHighlight, eyeRight, eyeRightIris, eyeRightHighlight);
   
   // Add special eye effects based on type
   if (eyeType === 'ALIEN') {
@@ -138,10 +144,12 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
   
   for (const m of [eyeLeft, eyeLeftIris, eyeLeftHighlight, eyeRight, eyeRightIris, eyeRightHighlight]) {
     m.castShadow = true;
-    eyes.add(m);
   }
   
-  return { eyes, irises: [eyeLeftIris, eyeRightIris], highlights: [eyeLeftHighlight, eyeRightHighlight] };
+  // Add the eye group to the main eyes group
+  eyes.add(eyeGroup);
+  
+  return { eyes, eyeGroup, irises: [eyeLeftIris, eyeRightIris], highlights: [eyeLeftHighlight, eyeRightHighlight] };
 }
 
 // Lobster hand system with multiple claws
@@ -435,9 +443,10 @@ function createNextGenHashima(color, monsterType = 'BUBBLE', seed = 1) {
   const body = createComplexBody(color, type.body, seed);
   group.add(body);
   
-  // Create complex eyes
+  // Create complex eyes and attach them to the body
   const eyeSystem = createComplexEyes(color, type.eyes, seed);
-  group.add(eyeSystem.eyes);
+  // Make eyes follow the body's position and scale
+  body.add(eyeSystem.eyes);
   
   // Create hands (lobster or normal)
   if (type.hands === 'LOBSTER') {
@@ -544,9 +553,9 @@ function animateMonsters(time) {
     data.idle.t += 0.02;
     const t = data.idle.t + time * 0.001;
     
-    // Floating animation
+    // Floating animation (removed spinning)
     monster.position.y = Math.sin(t * 2 + index) * 0.1;
-    monster.rotation.y += 0.005;
+    // Removed constant spinning - characters should face forward
     
     // Blink animation
     if (data.blinkT !== undefined) {

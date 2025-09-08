@@ -107,6 +107,9 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
       eyeHighlightGeo = new THREE.SphereGeometry(type.highlightSize, 16, 16);
   }
 
+  // Create eye group for proper positioning
+  const eyeGroup = new THREE.Group();
+
   const eyeLeft = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
   eyeLeft.position.set(-0.22, 0.35, 0.7);
   const eyeLeftIris = new THREE.Mesh(eyeIrisGeo, eyeIrisMat);
@@ -120,6 +123,9 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
   eyeRightIris.position.set(0.22, 0.33, 0.84);
   const eyeRightHighlight = new THREE.Mesh(eyeHighlightGeo, eyeHighlightMat);
   eyeRightHighlight.position.set(0.22, 0.33, 0.82);
+
+  // Add eyes to group
+  eyeGroup.add(eyeLeft, eyeLeftIris, eyeLeftHighlight, eyeRight, eyeRightIris, eyeRightHighlight);
 
   if (type.style === 'glowing') {
     eyeLeftIris.material.emissive = irisColor.getHex();
@@ -144,10 +150,12 @@ function createComplexEyes(color, eyeType = 'NORMAL', seed = 1) {
 
   for (const m of [eyeLeft, eyeLeftIris, eyeLeftHighlight, eyeRight, eyeRightIris, eyeRightHighlight]) {
     m.castShadow = true;
-    eyes.add(m);
   }
 
-  return { eyes, irises: [eyeLeftIris, eyeRightIris], highlights: [eyeLeftHighlight, eyeRightHighlight] };
+  // Add the eye group to the main eyes group
+  eyes.add(eyeGroup);
+
+  return { eyes, eyeGroup, irises: [eyeLeftIris, eyeRightIris], highlights: [eyeLeftHighlight, eyeRightHighlight] };
 }
 
 function createLobsterHands(color, seed = 1) {
@@ -727,9 +735,10 @@ function createNextGenHashima(color, monsterType = 'BUBBLE', seed = 1) {
   core.castShadow = false;
   group.add(core);
 
-  // Create eyes
+  // Create eyes and attach them to the body
   const eyeSystem = createComplexEyes(color, type.eyes, seed);
-  group.add(eyeSystem.eyes);
+  // Make eyes follow the body's position and scale
+  body.add(eyeSystem.eyes);
 
   // Create arms
   const arms = createComplexArms(color, type.hands, seed);

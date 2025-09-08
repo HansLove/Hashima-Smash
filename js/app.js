@@ -34,15 +34,282 @@ function loadThreeJS() {
 // Next-Generation Monster Factory
 import { createNextGenHashima, setThreeJS, getThreeJS } from './monster-factory.js';
 
-// Game constants - Smash Bros style
+// Animation Controller for frame-based animations
+class AnimationController {
+  constructor(monster) {
+    this.monster = monster;
+    this.currentState = ANIMATION_STATES.IDLE;
+    this.currentFrame = 0;
+    this.frameTimer = 0;
+    this.isGrounded = true;
+    this.facingRight = true;
+    this.velocity = { x: 0, y: 0 };
+    this.animationQueue = [];
+  }
+
+  setState(newState, force = false) {
+    const currentPriority = FRAME_DATA[this.currentState]?.priority || 0;
+    const newPriority = FRAME_DATA[newState]?.priority || 0;
+    
+    if (force || newPriority >= currentPriority) {
+      this.currentState = newState;
+      this.currentFrame = 0;
+      this.frameTimer = 0;
+    }
+  }
+
+  update(deltaTime) {
+    const frameData = FRAME_DATA[this.currentState];
+    if (!frameData) return;
+
+    this.frameTimer += deltaTime * 60; // 60 FPS
+    
+    if (this.frameTimer >= 1) {
+      this.currentFrame++;
+      this.frameTimer = 0;
+      
+      if (this.currentFrame >= frameData.frames) {
+        if (frameData.loop) {
+          this.currentFrame = 0;
+        } else {
+          // Animation finished, return to idle or next queued animation
+          this.setState(ANIMATION_STATES.IDLE);
+        }
+      }
+    }
+
+    this.applyAnimation();
+  }
+
+  applyAnimation() {
+    const frameData = FRAME_DATA[this.currentState];
+    const progress = this.currentFrame / frameData.frames;
+    
+    switch (this.currentState) {
+      case ANIMATION_STATES.IDLE:
+        this.applyIdleAnimation(progress);
+        break;
+      case ANIMATION_STATES.WALK:
+        this.applyWalkAnimation(progress);
+        break;
+      case ANIMATION_STATES.RUN:
+        this.applyRunAnimation(progress);
+        break;
+      case ANIMATION_STATES.JUMP:
+        this.applyJumpAnimation(progress);
+        break;
+      case ANIMATION_STATES.FALL:
+        this.applyFallAnimation(progress);
+        break;
+      case ANIMATION_STATES.ATTACK_NEUTRAL:
+        this.applyAttackNeutralAnimation(progress);
+        break;
+      case ANIMATION_STATES.ATTACK_SIDE:
+        this.applyAttackSideAnimation(progress);
+        break;
+      case ANIMATION_STATES.ATTACK_UP:
+        this.applyAttackUpAnimation(progress);
+        break;
+      case ANIMATION_STATES.ATTACK_DOWN:
+        this.applyAttackDownAnimation(progress);
+        break;
+      case ANIMATION_STATES.HIT:
+        this.applyHitAnimation(progress);
+        break;
+      case ANIMATION_STATES.SHIELD:
+        this.applyShieldAnimation(progress);
+        break;
+    }
+  }
+
+  applyIdleAnimation(progress) {
+    // Gentle breathing and subtle movements
+    const breathe = Math.sin(progress * Math.PI * 2) * 0.02;
+    this.monster.position.y = breathe;
+    
+    // Slight head movement
+    if (this.monster.userData.eyeSystem) {
+      const headBob = Math.sin(progress * Math.PI * 4) * 0.01;
+      this.monster.userData.eyeSystem.eyes.position.y = headBob;
+    }
+  }
+
+  applyWalkAnimation(progress) {
+    const walkCycle = Math.sin(progress * Math.PI * 2) * 0.1;
+    const legSwing = Math.sin(progress * Math.PI * 2) * 0.3;
+    
+    // Animate legs
+    if (this.monster.userData.legs) {
+      const legChildren = this.monster.userData.legs.children;
+      if (legChildren.length >= 6) {
+        // Left leg
+        legChildren[0].rotation.x = legSwing;
+        legChildren[1].rotation.x = legSwing * 0.5;
+        
+        // Right leg (opposite phase)
+        legChildren[3].rotation.x = -legSwing;
+        legChildren[4].rotation.x = -legSwing * 0.5;
+      }
+    }
+    
+    // Body bob
+    this.monster.position.y = walkCycle * 0.05;
+  }
+
+  applyRunAnimation(progress) {
+    const runCycle = Math.sin(progress * Math.PI * 4) * 0.15;
+    const legSwing = Math.sin(progress * Math.PI * 4) * 0.4;
+    
+    // Animate legs more aggressively
+    if (this.monster.userData.legs) {
+      const legChildren = this.monster.userData.legs.children;
+      if (legChildren.length >= 6) {
+        legChildren[0].rotation.x = legSwing;
+        legChildren[1].rotation.x = legSwing * 0.6;
+        legChildren[3].rotation.x = -legSwing;
+        legChildren[4].rotation.x = -legSwing * 0.6;
+      }
+    }
+    
+    // More pronounced body movement
+    this.monster.position.y = runCycle * 0.08;
+  }
+
+  applyJumpAnimation(progress) {
+    // Jump preparation and takeoff
+    const jumpPrep = Math.sin(progress * Math.PI * 0.5) * 0.1;
+    this.monster.position.y = jumpPrep;
+    
+    // Legs compress for jump
+    if (this.monster.userData.legs) {
+      const legChildren = this.monster.userData.legs.children;
+      if (legChildren.length >= 6) {
+        const compression = (1 - progress) * 0.2;
+        legChildren[0].scale.y = 1 - compression;
+        legChildren[3].scale.y = 1 - compression;
+      }
+    }
+  }
+
+  applyFallAnimation(progress) {
+    // Arms spread for balance
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        armChildren[0].rotation.z = -0.5; // Left arm spread
+        armChildren[3].rotation.z = 0.5;  // Right arm spread
+      }
+    }
+  }
+
+  applyAttackNeutralAnimation(progress) {
+    // Quick jab motion
+    const attackPhase = progress < 0.3 ? progress / 0.3 : (1 - progress) / 0.7;
+    const punch = Math.sin(attackPhase * Math.PI) * 0.2;
+    
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        // Right arm punch
+        armChildren[3].rotation.z = punch;
+        armChildren[4].rotation.z = punch * 0.8;
+      }
+    }
+  }
+
+  applyAttackSideAnimation(progress) {
+    // Side attack with body rotation
+    const attackPhase = progress < 0.4 ? progress / 0.4 : (1 - progress) / 0.6;
+    const punch = Math.sin(attackPhase * Math.PI) * 0.4;
+    const bodyTurn = Math.sin(attackPhase * Math.PI) * 0.3;
+    
+    this.monster.rotation.y = this.facingRight ? bodyTurn : -bodyTurn;
+    
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        const attackArm = this.facingRight ? 3 : 0; // Right or left arm
+        armChildren[attackArm].rotation.z = punch;
+        armChildren[attackArm + 1].rotation.z = punch * 0.9;
+      }
+    }
+  }
+
+  applyAttackUpAnimation(progress) {
+    // Upward attack
+    const attackPhase = progress < 0.5 ? progress / 0.5 : (1 - progress) / 0.5;
+    const uppercut = Math.sin(attackPhase * Math.PI) * 0.6;
+    
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        // Both arms for uppercut
+        armChildren[0].rotation.x = -uppercut;
+        armChildren[3].rotation.x = -uppercut;
+        armChildren[1].rotation.x = -uppercut * 0.8;
+        armChildren[4].rotation.x = -uppercut * 0.8;
+      }
+    }
+  }
+
+  applyAttackDownAnimation(progress) {
+    // Downward attack
+    const attackPhase = progress < 0.3 ? progress / 0.3 : (1 - progress) / 0.7;
+    const slam = Math.sin(attackPhase * Math.PI) * 0.5;
+    
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        // Both arms for downward slam
+        armChildren[0].rotation.x = slam;
+        armChildren[3].rotation.x = slam;
+        armChildren[1].rotation.x = slam * 0.9;
+        armChildren[4].rotation.x = slam * 0.9;
+      }
+    }
+  }
+
+  applyHitAnimation(progress) {
+    // Hit reaction with body shake
+    const shake = Math.sin(progress * Math.PI * 8) * 0.05;
+    this.monster.position.x += shake;
+    this.monster.position.y += shake * 0.5;
+    
+    // Arms flail
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        const flail = Math.sin(progress * Math.PI * 6) * 0.3;
+        armChildren[0].rotation.z = flail;
+        armChildren[3].rotation.z = -flail;
+      }
+    }
+  }
+
+  applyShieldAnimation(progress) {
+    // Shield pose with arms up
+    if (this.monster.userData.arms) {
+      const armChildren = this.monster.userData.arms.children;
+      if (armChildren.length >= 6) {
+        const shieldPose = 0.8;
+        armChildren[0].rotation.x = -shieldPose;
+        armChildren[3].rotation.x = -shieldPose;
+        armChildren[1].rotation.x = -shieldPose * 0.7;
+        armChildren[4].rotation.x = -shieldPose * 0.7;
+      }
+    }
+  }
+}
+
+// Game constants - Smash Bros style (upgraded)
 const ARENA_HALF_WIDTH = 8;
 const GROUND_Y = 0;
-const HORIZ_SPEED = 0.15;
-const HORIZ_ACCEL = 0.008;
-const HORIZ_FRICTION = 0.85;
-const GRAVITY = 0.012;
-const JUMP_VELOCITY = 0.25;
-const MAX_FALL_SPEED = 0.3;
+const HORIZ_SPEED = 0.18; // Increased for better movement
+const HORIZ_ACCEL = 0.012; // Increased acceleration
+const HORIZ_FRICTION = 0.88; // Better friction
+const GRAVITY = 0.018; // Increased gravity for better jumping
+const JUMP_VELOCITY = 0.32; // Increased jump power
+const MAX_FALL_SPEED = 0.35; // Increased fall speed
 const ATTACK_COOLDOWN_FRAMES = 8;
 const HITSTUN_FRAMES = 8;
 const DAMAGE_STALING = 0.95;
@@ -56,6 +323,48 @@ const FAST_FALL_MULTIPLIER = 1.5;
 const COMBO_WINDOW = 15;
 const AIR_ATTACK_MULTIPLIER = 0.8;
 const PERFECT_SHIELD_FRAMES = 3;
+
+// Frame-based animation system
+const ANIMATION_STATES = {
+  IDLE: 'idle',
+  WALK: 'walk',
+  RUN: 'run',
+  JUMP: 'jump',
+  FALL: 'fall',
+  LAND: 'land',
+  ATTACK_NEUTRAL: 'attack_neutral',
+  ATTACK_SIDE: 'attack_side',
+  ATTACK_UP: 'attack_up',
+  ATTACK_DOWN: 'attack_down',
+  ATTACK_AIR: 'attack_air',
+  HIT: 'hit',
+  HITSTUN: 'hitstun',
+  SHIELD: 'shield',
+  ROLL: 'roll',
+  DODGE: 'dodge',
+  DEATH: 'death'
+};
+
+// Frame data for each animation state
+const FRAME_DATA = {
+  [ANIMATION_STATES.IDLE]: { frames: 60, loop: true, priority: 0 },
+  [ANIMATION_STATES.WALK]: { frames: 20, loop: true, priority: 1 },
+  [ANIMATION_STATES.RUN]: { frames: 16, loop: true, priority: 2 },
+  [ANIMATION_STATES.JUMP]: { frames: 8, loop: false, priority: 3 },
+  [ANIMATION_STATES.FALL]: { frames: 12, loop: true, priority: 3 },
+  [ANIMATION_STATES.LAND]: { frames: 6, loop: false, priority: 4 },
+  [ANIMATION_STATES.ATTACK_NEUTRAL]: { frames: 15, loop: false, priority: 5 },
+  [ANIMATION_STATES.ATTACK_SIDE]: { frames: 24, loop: false, priority: 5 },
+  [ANIMATION_STATES.ATTACK_UP]: { frames: 20, loop: false, priority: 5 },
+  [ANIMATION_STATES.ATTACK_DOWN]: { frames: 30, loop: false, priority: 5 },
+  [ANIMATION_STATES.ATTACK_AIR]: { frames: 18, loop: false, priority: 5 },
+  [ANIMATION_STATES.HIT]: { frames: 12, loop: false, priority: 6 },
+  [ANIMATION_STATES.HITSTUN]: { frames: 20, loop: false, priority: 7 },
+  [ANIMATION_STATES.SHIELD]: { frames: 30, loop: true, priority: 4 },
+  [ANIMATION_STATES.ROLL]: { frames: 20, loop: false, priority: 6 },
+  [ANIMATION_STATES.DODGE]: { frames: 15, loop: false, priority: 6 },
+  [ANIMATION_STATES.DEATH]: { frames: 40, loop: false, priority: 8 }
+};
 
 // Attack system - Smash Bros style (moved to top for access)
 const ATTACK_TYPES = {
@@ -724,6 +1033,31 @@ function startGame() {
   p1.userData.originalScale.copy(p1.scale);
   p2.userData.originalScale.copy(p2.scale);
   
+  // Initialize animation controllers
+  p1.userData.animationController = new AnimationController(p1);
+  p2.userData.animationController = new AnimationController(p2);
+  
+  // Initialize additional movement state
+  p1.userData.isGrounded = true;
+  p1.userData.facingRight = true;
+  p1.userData.velocity = { x: 0, y: 0 };
+  p1.userData.health = 100;
+  p1.userData.isAttacking = false;
+  p1.userData.isHit = false;
+  p1.userData.isShielding = false;
+  p1.userData.attackCooldown = 0;
+  p1.userData.hitstun = 0;
+  
+  p2.userData.isGrounded = true;
+  p2.userData.facingRight = false;
+  p2.userData.velocity = { x: 0, y: 0 };
+  p2.userData.health = 100;
+  p2.userData.isAttacking = false;
+  p2.userData.isHit = false;
+  p2.userData.isShielding = false;
+  p2.userData.attackCooldown = 0;
+  p2.userData.hitstun = 0;
+  
   scene.add(p1, p2);
 
   // Reset inputs
@@ -1261,13 +1595,17 @@ function updateGame(dt){
   // Player 1 controls (WASD + Space/Shift/Ctrl/Alt)
   if (p1.userData.hitstun <= 0 && !p1.userData.rolling) {
     // Movement
-    if(inputs.keys.has('a')){ p1.userData.vx -= HORIZ_ACCEL; p1.userData.facing = -1; }
-    if(inputs.keys.has('d')){ p1.userData.vx += HORIZ_ACCEL; p1.userData.facing = 1; }
+    if(inputs.keys.has('a')){ p1.userData.velocity.x -= HORIZ_ACCEL; p1.userData.facing = -1; }
+    if(inputs.keys.has('d')){ p1.userData.velocity.x += HORIZ_ACCEL; p1.userData.facing = 1; }
     
     // Jump
-    if(inputs.keys.has('w') && p1.userData.grounded && p1.userData.landingLag <= 0){ 
-      p1.userData.vy = JUMP_VELOCITY; 
-      p1.userData.grounded = false; 
+    if(inputs.keys.has('w') && p1.userData.isGrounded && p1.userData.landingLag <= 0){ 
+      p1.userData.velocity.y = JUMP_VELOCITY; 
+      p1.userData.isGrounded = false;
+      // Set jump animation
+      if (p1.userData.animationController) {
+        p1.userData.animationController.setState(ANIMATION_STATES.JUMP);
+      }
     }
     
     // Fast fall
@@ -1300,13 +1638,17 @@ function updateGame(dt){
   // Player 2 controls (Arrow Keys + Enter/R/T/Y + F/G)
   if (p2.userData.hitstun <= 0 && !p2.userData.rolling) {
     // Movement
-    if(inputs.keys.has('ArrowLeft')){ p2.userData.vx -= HORIZ_ACCEL; p2.userData.facing = -1; }
-    if(inputs.keys.has('ArrowRight')){ p2.userData.vx += HORIZ_ACCEL; p2.userData.facing = 1; }
+    if(inputs.keys.has('ArrowLeft')){ p2.userData.velocity.x -= HORIZ_ACCEL; p2.userData.facing = -1; }
+    if(inputs.keys.has('ArrowRight')){ p2.userData.velocity.x += HORIZ_ACCEL; p2.userData.facing = 1; }
     
     // Jump
-    if(inputs.keys.has('ArrowUp') && p2.userData.grounded && p2.userData.landingLag <= 0){ 
-      p2.userData.vy = JUMP_VELOCITY; 
-      p2.userData.grounded = false; 
+    if(inputs.keys.has('ArrowUp') && p2.userData.isGrounded && p2.userData.landingLag <= 0){ 
+      p2.userData.velocity.y = JUMP_VELOCITY; 
+      p2.userData.isGrounded = false;
+      // Set jump animation
+      if (p2.userData.animationController) {
+        p2.userData.animationController.setState(ANIMATION_STATES.JUMP);
+      } 
     }
     
     // Fast fall
@@ -1457,23 +1799,119 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
-// Idle animation for any hashima
-function animateIdle(node, time) {
+// Enhanced animation system using AnimationController
+function animateMonster(node, time, deltaTime) {
+  if (!node || !node.userData || !node.userData.animationController) return;
+  
+  // Update animation controller
+  node.userData.animationController.update(deltaTime);
+  
+  // Update movement state
+  updateMovementState(node);
+  
+  // Apply physics
+  applyPhysics(node, deltaTime);
+}
+
+// Update movement state based on input and physics
+function updateMovementState(node) {
+  const controller = node.userData.animationController;
+  if (!controller) return;
+  
+  // Update facing direction
+  if (node.userData.velocity.x > 0.01) {
+    controller.facingRight = true;
+  } else if (node.userData.velocity.x < -0.01) {
+    controller.facingRight = false;
+  }
+  
+  // Update grounded state
+  controller.isGrounded = node.userData.isGrounded;
+  
+  // Update velocity
+  controller.velocity = { x: node.userData.velocity.x, y: node.userData.velocity.y };
+  
+  // Set animation state based on movement
+  if (node.userData.isAttacking) {
+    // Attack animations are handled by input system
+  } else if (node.userData.isHit) {
+    controller.setState(ANIMATION_STATES.HIT);
+  } else if (node.userData.isShielding) {
+    controller.setState(ANIMATION_STATES.SHIELD);
+  } else if (!node.userData.isGrounded) {
+    if (node.userData.velocity.y > 0) {
+      controller.setState(ANIMATION_STATES.JUMP);
+    } else {
+      controller.setState(ANIMATION_STATES.FALL);
+    }
+  } else if (Math.abs(node.userData.velocity.x) > 0.1) {
+    if (Math.abs(node.userData.velocity.x) > 0.3) {
+      controller.setState(ANIMATION_STATES.RUN);
+    } else {
+      controller.setState(ANIMATION_STATES.WALK);
+    }
+  } else {
+    controller.setState(ANIMATION_STATES.IDLE);
+  }
+}
+
+// Apply physics to monster
+function applyPhysics(node, deltaTime) {
+  if (!node.userData.velocity) return;
+  
+  // Apply gravity
+  if (!node.userData.isGrounded) {
+    node.userData.velocity.y -= GRAVITY * deltaTime * 60;
+    if (node.userData.velocity.y < -MAX_FALL_SPEED) {
+      node.userData.velocity.y = -MAX_FALL_SPEED;
+    }
+  }
+  
+  // Apply horizontal friction
+  if (node.userData.isGrounded) {
+    node.userData.velocity.x *= HORIZ_FRICTION;
+    if (Math.abs(node.userData.velocity.x) < 0.01) {
+      node.userData.velocity.x = 0;
+    }
+  }
+  
+  // Update position
+  node.position.x += node.userData.velocity.x * deltaTime * 60;
+  node.position.y += node.userData.velocity.y * deltaTime * 60;
+  
+  // Ground collision
+  if (node.position.y <= GROUND_Y && node.userData.velocity.y <= 0) {
+    node.position.y = GROUND_Y;
+    node.userData.velocity.y = 0;
+    node.userData.isGrounded = true;
+    
+    // Landing animation
+    if (node.userData.animationController) {
+      node.userData.animationController.setState(ANIMATION_STATES.LAND);
+    }
+  } else {
+    node.userData.isGrounded = false;
+  }
+  
+  // Arena boundaries
+  if (node.position.x < -ARENA_HALF_WIDTH) {
+    node.position.x = -ARENA_HALF_WIDTH;
+    node.userData.velocity.x = 0;
+  } else if (node.position.x > ARENA_HALF_WIDTH) {
+    node.position.x = ARENA_HALF_WIDTH;
+    node.userData.velocity.x = 0;
+  }
+}
+
+// Legacy idle animation function (kept for compatibility)
+function animateIdleLegacy(node, time) {
   if (!node || !node.userData) return;
   const breed = node.userData.breed;
   
   node.userData.idle.t += 0.02 * (node.userData.animationSpeed || 1.0);
   const t = node.userData.idle.t + time * 0.001;
   node.position.y = Math.sin(t * 2) * 0.06;
-  node.rotation.y += 0.004;
-
-  // Pupils follow opponent/controls subtly
-  const pupils = node.userData.pupils || [];
-  for (const p of pupils) {
-    p.position.x = Math.sign(Math.sin(t * 0.7)) * (breed === 'CAT' ? 0.25 : 0.28);
-    p.position.y = (breed === 'DRAGON' ? 0.2 : 0.15) + Math.sin(t * 1.3) * 0.005;
-    p.position.z = 0.92 + Math.cos(t * 1.1) * 0.005;
-  }
+  // Removed constant spinning - characters should face their opponent
 
   // Blink by scaling eyes on Y
   if (node.userData.blinkT !== undefined) {
@@ -1646,6 +2084,17 @@ function animateIdle(node, time) {
   node.scale.x = node.userData.originalScale.x + breath;
   node.scale.y = node.userData.originalScale.y + breath * 0.5;
   node.scale.z = node.userData.originalScale.z + breath;
+}
+
+// Legacy idle animation function (kept for compatibility)
+function animateIdle(node, time) {
+  if (!node || !node.userData) return;
+  const breed = node.userData.breed;
+  
+  node.userData.idle.t += 0.02 * (node.userData.animationSpeed || 1.0);
+  const t = node.userData.idle.t + time * 0.001;
+  node.position.y = Math.sin(t * 2) * 0.06;
+  // Removed constant spinning - characters should face their opponent
 }
 
 // Enhanced monster animations with special effects
@@ -1878,14 +2327,14 @@ function tick(now) {
       if (preview.p2 && preview.p2.userData) animateIdle(preview.p2, now);
     }
 
-    // Update game entities idle animation when in game scene
+    // Update game entities with new animation system
     if (state.scene === 'game' && state.gameRunning) {
       if (state.entities.p1 && state.entities.p1.userData) {
-        animateIdle(state.entities.p1, now);
+        animateMonster(state.entities.p1, now, dt);
         animateMonsterSpecialEffects(state.entities.p1, now);
       }
       if (state.entities.p2 && state.entities.p2.userData) {
-        animateIdle(state.entities.p2, now);
+        animateMonster(state.entities.p2, now, dt);
         animateMonsterSpecialEffects(state.entities.p2, now);
       }
     }
