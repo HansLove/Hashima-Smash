@@ -1,0 +1,23 @@
+{
+  "name": "hashima-smash",
+  "version": "1.0.0",
+  "description": "Hashima: Next-Gen Color-Bubble Monster Smash Bros-style fighting game",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "serve": "node server.js"
+  },
+  "keywords": [
+    "game",
+    "fighting",
+    "smash-bros",
+    "three.js",
+    "monsters"
+  ],
+  "author": "Aaron Tolentino",
+  "license": "MIT",
+  "devDependencies": {
+    "three": "^0.160.0"
+  }
+}

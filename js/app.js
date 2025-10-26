@@ -560,6 +560,7 @@ const btnMenu = document.getElementById('btn-menu');
 
 // Menu elements
 const btnPlay = document.getElementById('btn-play');
+const btnShowcase = document.getElementById('btn-showcase');
 const btnHowto = document.getElementById('btn-howto');
 const howtoModal = document.getElementById('howto-modal');
 const btnHowtoClose = document.getElementById('btn-howto-close');
@@ -874,6 +875,10 @@ btnPlay.addEventListener('click', () => {
   state.scene = 'select';
   showScreen('select');
   refreshSelectPreview();
+});
+
+btnShowcase.addEventListener('click', () => {
+  window.open('monster-showcase.html', '_blank');
 });
 
 btnHowto.addEventListener('click', () => { howtoModal.classList.remove('hidden'); });
@@ -1564,6 +1569,8 @@ function applyPhysics(entity){
     entity.userData.vx *= 0.5; // Reduced movement during landing lag
   }
 }
+
+
 function updateGame(dt){
   // Only update if we're in the game scene AND the game is actually running
   if (state.scene !== 'game' || !state.gameRunning) {
@@ -1810,7 +1817,7 @@ function animateMonster(node, time, deltaTime) {
   updateMovementState(node);
   
   // Apply physics
-  applyPhysics(node, deltaTime);
+  applyPhysicsForAnimation(node, deltaTime);
 }
 
 // Update movement state based on input and physics
@@ -1855,8 +1862,8 @@ function updateMovementState(node) {
   }
 }
 
-// Apply physics to monster
-function applyPhysics(node, deltaTime) {
+// Apply physics to monster for animation system (renamed to avoid duplicate)
+function applyPhysicsForAnimation(node, deltaTime) {
   if (!node.userData.velocity) return;
   
   // Apply gravity
